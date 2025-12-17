@@ -439,7 +439,7 @@ pub async fn ai_query_stream(
                                         .arg(command)
                                         .output()
                                         .map_err(|e| format!("Failed to execute: {}", e))?;
-                                    
+
                                     let mut result = String::from_utf8_lossy(&output.stdout).to_string();
                                     if !output.stderr.is_empty() {
                                         result.push_str("\n");
@@ -450,9 +450,60 @@ pub async fn ai_query_stream(
                                     Err("Missing 'command' argument".to_string())
                                 }
                             },
+                            Some("edit_file") => {
+                                if let (Some(path), Some(old_str), Some(new_str)) = (
+                                    args.get("path").and_then(|p| p.as_str()),
+                                    args.get("old_string").and_then(|o| o.as_str()),
+                                    args.get("new_string").and_then(|n| n.as_str())
+                                ) {
+                                    eprintln!("[edit_file] ⚡ TOOL EXECUTION ⚡ Editing: {}", path);
+                                    let expanded = shellexpand::tilde(path).to_string();
+                                    let content = std::fs::read_to_string(&expanded)
+                                        .map_err(|e| format!("Failed to read {}: {}", path, e))?;
+
+                                    if !content.contains(old_str) {
+                                        Err(format!("old_string not found in file '{}'", path))
+                                    } else {
+                                        let replace_all = args.get("replace_all")
+                                            .and_then(|r| r.as_bool())
+                                            .unwrap_or(false);
+                                        let new_content = if replace_all {
+                                            content.replace(old_str, new_str)
+                                        } else {
+                                            content.replacen(old_str, new_str, 1)
+                                        };
+                                        std::fs::write(&expanded, &new_content)
+                                            .map_err(|e| format!("Failed to write {}: {}", path, e))?;
+                                        Ok(format!("Successfully edited '{}'", path))
+                                    }
+                                } else {
+                                    Err("Missing 'path', 'old_string', or 'new_string' argument".to_string())
+                                }
+                            },
+                            Some("web_fetch") => {
+                                if let Some(url) = args.get("url").and_then(|u| u.as_str()) {
+                                    eprintln!("[web_fetch] ⚡ TOOL EXECUTION ⚡ Fetching: {}", url);
+                                    // Synchronous HTTP fetch for tool execution context
+                                    let client = reqwest::blocking::Client::builder()
+                                        .timeout(std::time::Duration::from_secs(10))
+                                        .build()
+                                        .map_err(|e| format!("HTTP client error: {}", e))?;
+                                    let response = client.get(url)
+                                        .header("User-Agent", "Warp_Open/1.0")
+                                        .send()
+                                        .map_err(|e| format!("Failed to fetch: {}", e))?;
+                                    let body = response.text()
+                                        .map_err(|e| format!("Failed to read body: {}", e))?;
+                                    // Strip HTML and truncate
+                                    let text = html_to_text(&body);
+                                    Ok(text.chars().take(5000).collect::<String>())
+                                } else {
+                                    Err("Missing 'url' argument".to_string())
+                                }
+                            },
                             _ => Err(format!("Unknown tool: {:?}", tool_name))
                         };
-                        
+
                         // Emit tool result event to frontend
                         let _ = app_handle.emit_all("tool_executed", serde_json::json!({
                             "tabId": tab_id,
@@ -548,6 +599,531 @@ pub async fn write_file(path: String, content: String) -> Result<String, String>
     std::fs::write(&expanded_path, &content)
         .map_err(|e| format!("Failed to write {}: {}", path, e))?;
     Ok(format!("Wrote {} bytes to {}", content.len(), path))
+}
+
+// ============================================================================
+// FEATURE: Edit Tool - Surgical file edits (Claude Code parity)
+// ============================================================================
+
+#[derive(Debug, Clone, Serialize)]
+pub struct EditResult {
+    pub success: bool,
+    pub matches_replaced: usize,
+    pub message: String,
+}
+
+#[tauri::command]
+pub async fn edit_file(
+    path: String,
+    old_string: String,
+    new_string: String,
+    replace_all: Option<bool>,
+) -> Result<EditResult, String> {
+    eprintln!("[edit_file] ⚡ TOOL EXECUTION ⚡ Editing: {}", path);
+    eprintln!("[edit_file] old_string length: {}, new_string length: {}", old_string.len(), new_string.len());
+
+    let expanded_path = shellexpand::tilde(&path).to_string();
+
+    // Read the file
+    let content = std::fs::read_to_string(&expanded_path)
+        .map_err(|e| format!("Failed to read {}: {}", path, e))?;
+
+    // Check if old_string exists
+    if !content.contains(&old_string) {
+        return Err(format!(
+            "old_string not found in file '{}'. The exact string must exist in the file.",
+            path
+        ));
+    }
+
+    // Count matches
+    let match_count = content.matches(&old_string).count();
+
+    // Perform replacement
+    let (new_content, replaced_count) = if replace_all.unwrap_or(false) {
+        (content.replace(&old_string, &new_string), match_count)
+    } else {
+        (content.replacen(&old_string, &new_string, 1), 1)
+    };
+
+    // Write back
+    std::fs::write(&expanded_path, &new_content)
+        .map_err(|e| format!("Failed to write {}: {}", path, e))?;
+
+    eprintln!("[edit_file] Replaced {} occurrence(s)", replaced_count);
+
+    Ok(EditResult {
+        success: true,
+        matches_replaced: replaced_count,
+        message: format!(
+            "Successfully edited '{}': replaced {} occurrence(s)",
+            path, replaced_count
+        ),
+    })
+}
+
+// ============================================================================
+// FEATURE: Web Fetch Tool - Fetch web content (Claude Code parity)
+// ============================================================================
+
+#[tauri::command]
+pub async fn web_fetch(url: String) -> Result<String, String> {
+    eprintln!("[web_fetch] ⚡ TOOL EXECUTION ⚡ Fetching: {}", url);
+
+    // Validate URL
+    if !url.starts_with("http://") && !url.starts_with("https://") {
+        return Err("URL must start with http:// or https://".to_string());
+    }
+
+    // Create client with timeout
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+
+    // Fetch the URL
+    let response = client.get(&url)
+        .header("User-Agent", "Warp_Open/1.0 (Terminal AI Assistant)")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch URL: {}", e))?;
+
+    // Check status
+    if !response.status().is_success() {
+        return Err(format!("HTTP error: {}", response.status()));
+    }
+
+    // Get content type
+    let content_type = response.headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("text/html")
+        .to_string();
+
+    // Get body
+    let body = response.text()
+        .await
+        .map_err(|e| format!("Failed to read response body: {}", e))?;
+
+    // Convert HTML to plain text (simple extraction)
+    let text = if content_type.contains("text/html") {
+        html_to_text(&body)
+    } else {
+        body
+    };
+
+    // Truncate to reasonable size (10KB)
+    let truncated: String = text.chars().take(10000).collect();
+    let was_truncated = text.len() > 10000;
+
+    eprintln!("[web_fetch] Fetched {} chars (truncated: {})", truncated.len(), was_truncated);
+
+    if was_truncated {
+        Ok(format!("{}\n\n[Content truncated at 10000 characters]", truncated))
+    } else {
+        Ok(truncated)
+    }
+}
+
+/// Simple HTML to text conversion (removes tags, decodes entities)
+fn html_to_text(html: &str) -> String {
+    let mut text = html.to_string();
+
+    // Remove script and style tags with content
+    let script_re = Regex::new(r"(?is)<script[^>]*>.*?</script>").unwrap();
+    text = script_re.replace_all(&text, "").to_string();
+
+    let style_re = Regex::new(r"(?is)<style[^>]*>.*?</style>").unwrap();
+    text = style_re.replace_all(&text, "").to_string();
+
+    // Replace common block elements with newlines
+    let block_re = Regex::new(r"(?i)</(p|div|h[1-6]|li|tr|br)[^>]*>").unwrap();
+    text = block_re.replace_all(&text, "\n").to_string();
+
+    // Remove all other HTML tags
+    let tag_re = Regex::new(r"<[^>]+>").unwrap();
+    text = tag_re.replace_all(&text, "").to_string();
+
+    // Decode common HTML entities
+    text = text.replace("&nbsp;", " ")
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&apos;", "'");
+
+    // Clean up whitespace
+    let whitespace_re = Regex::new(r"\n\s*\n+").unwrap();
+    text = whitespace_re.replace_all(&text, "\n\n").to_string();
+
+    text.trim().to_string()
+}
+
+// ============================================================================
+// FEATURE: Shell Completions - Fish-style tab completion
+// ============================================================================
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CompletionItem {
+    pub text: String,
+    pub description: Option<String>,
+    pub kind: String, // "command", "file", "directory", "alias", "builtin"
+}
+
+#[tauri::command]
+pub async fn get_shell_completions(
+    partial: String,
+    shell: Option<String>,
+) -> Result<Vec<CompletionItem>, String> {
+    eprintln!("[get_shell_completions] Getting completions for: '{}' (shell: {:?})", partial, shell);
+
+    if partial.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let detected_shell = shell.unwrap_or_else(|| {
+        std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string())
+    });
+
+    let completions = if detected_shell.contains("fish") {
+        get_fish_completions(&partial).await?
+    } else if detected_shell.contains("zsh") {
+        get_zsh_completions(&partial).await?
+    } else {
+        get_bash_completions(&partial).await?
+    };
+
+    eprintln!("[get_shell_completions] Found {} completions", completions.len());
+    Ok(completions)
+}
+
+async fn get_bash_completions(partial: &str) -> Result<Vec<CompletionItem>, String> {
+    // Use compgen to get command completions
+    let output = std::process::Command::new("bash")
+        .arg("-c")
+        .arg(format!("compgen -c '{}'", partial))
+        .output()
+        .map_err(|e| format!("Failed to run compgen: {}", e))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut completions: Vec<CompletionItem> = stdout
+        .lines()
+        .take(50) // Limit results
+        .map(|line| CompletionItem {
+            text: line.to_string(),
+            description: None,
+            kind: "command".to_string(),
+        })
+        .collect();
+
+    // Also get aliases
+    let alias_output = std::process::Command::new("bash")
+        .arg("-ic")
+        .arg(format!("compgen -a '{}'", partial))
+        .output();
+
+    if let Ok(alias_out) = alias_output {
+        let alias_stdout = String::from_utf8_lossy(&alias_out.stdout);
+        for line in alias_stdout.lines().take(20) {
+            completions.push(CompletionItem {
+                text: line.to_string(),
+                description: Some("alias".to_string()),
+                kind: "alias".to_string(),
+            });
+        }
+    }
+
+    Ok(completions)
+}
+
+async fn get_zsh_completions(partial: &str) -> Result<Vec<CompletionItem>, String> {
+    // Zsh uses different completion mechanism
+    // Fall back to which + apropos for descriptions
+    let output = std::process::Command::new("bash")
+        .arg("-c")
+        .arg(format!("compgen -c '{}'", partial))
+        .output()
+        .map_err(|e| format!("Failed to get completions: {}", e))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let completions: Vec<CompletionItem> = stdout
+        .lines()
+        .take(50)
+        .map(|cmd| {
+            // Try to get description from whatis
+            let desc = get_command_description(cmd);
+            CompletionItem {
+                text: cmd.to_string(),
+                description: desc,
+                kind: "command".to_string(),
+            }
+        })
+        .collect();
+
+    Ok(completions)
+}
+
+async fn get_fish_completions(partial: &str) -> Result<Vec<CompletionItem>, String> {
+    // Fish has built-in completion query
+    let output = std::process::Command::new("fish")
+        .arg("-c")
+        .arg(format!("complete -C'{}'", partial))
+        .output()
+        .map_err(|e| format!("Failed to run fish complete: {}", e))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let completions: Vec<CompletionItem> = stdout
+        .lines()
+        .take(50)
+        .map(|line| {
+            // Fish format: "completion\tdescription"
+            let parts: Vec<&str> = line.splitn(2, '\t').collect();
+            CompletionItem {
+                text: parts[0].to_string(),
+                description: parts.get(1).map(|s| s.to_string()),
+                kind: "command".to_string(),
+            }
+        })
+        .collect();
+
+    Ok(completions)
+}
+
+fn get_command_description(cmd: &str) -> Option<String> {
+    // Try whatis for description
+    let output = std::process::Command::new("whatis")
+        .arg(cmd)
+        .output()
+        .ok()?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        // Parse "cmd (section) - description"
+        if let Some(desc_part) = stdout.split(" - ").nth(1) {
+            return Some(desc_part.trim().to_string());
+        }
+    }
+    None
+}
+
+// ============================================================================
+// FEATURE: AI Inline Autocomplete - Fast command suggestions
+// ============================================================================
+
+#[tauri::command]
+pub async fn get_ai_completion(
+    partial_command: String,
+    cwd: Option<String>,
+) -> Result<String, String> {
+    eprintln!("[get_ai_completion] Getting AI completion for: '{}'", partial_command);
+
+    if partial_command.len() < 2 {
+        return Ok(String::new());
+    }
+
+    // Build a focused prompt for fast completion
+    let prompt = format!(
+        "Complete this shell command. Output ONLY the completion text, nothing else.\n\
+         Current directory: {}\n\
+         Partial command: {}\n\
+         Completion:",
+        cwd.unwrap_or_else(|| "~".to_string()),
+        partial_command
+    );
+
+    // Query Ollama with minimal settings for speed
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(3)) // Short timeout for responsiveness
+        .build()
+        .map_err(|e| format!("HTTP client error: {}", e))?;
+
+    let body = serde_json::json!({
+        "model": "qwen2.5:3b", // Use small fast model
+        "prompt": prompt,
+        "stream": false,
+        "options": {
+            "num_predict": 50,  // Short response
+            "temperature": 0.1, // Deterministic
+            "stop": ["\n", "```"] // Stop at newline
+        }
+    });
+
+    let response = client.post("http://localhost:11434/api/generate")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("Ollama request failed: {}", e))?;
+
+    if !response.status().is_success() {
+        return Err(format!("Ollama error: {}", response.status()));
+    }
+
+    let json: serde_json::Value = response.json()
+        .await
+        .map_err(|e| format!("Failed to parse response: {}", e))?;
+
+    let completion = json.get("response")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim()
+        .to_string();
+
+    eprintln!("[get_ai_completion] Suggestion: '{}'", completion);
+
+    // Return only the part that extends the command
+    if completion.starts_with(&partial_command) {
+        Ok(completion[partial_command.len()..].to_string())
+    } else {
+        Ok(completion)
+    }
+}
+
+// ============================================================================
+// FEATURE: SSH Support - Remote terminal connections
+// ============================================================================
+
+use crate::ssh_session::{SshSession, SshRegistry, SshInfo};
+
+pub struct SshState {
+    pub registry: SshRegistry,
+}
+
+impl SshState {
+    pub fn new() -> Self {
+        Self {
+            registry: SshRegistry::new(),
+        }
+    }
+}
+
+impl Default for SshState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[tauri::command]
+pub async fn ssh_connect_password(
+    host: String,
+    port: Option<u16>,
+    username: String,
+    password: String,
+    state: State<'_, SshState>,
+) -> Result<SshInfo, String> {
+    eprintln!("[SSH] Connecting to {}@{}:{}", username, host, port.unwrap_or(22));
+
+    let session = SshSession::connect_password(
+        &host,
+        port.unwrap_or(22),
+        &username,
+        &password,
+    )?;
+
+    let id = state.registry.register(session);
+
+    Ok(SshInfo {
+        id,
+        host,
+        username,
+        connected: true,
+    })
+}
+
+#[tauri::command]
+pub async fn ssh_connect_key(
+    host: String,
+    port: Option<u16>,
+    username: String,
+    key_path: String,
+    passphrase: Option<String>,
+    state: State<'_, SshState>,
+) -> Result<SshInfo, String> {
+    eprintln!("[SSH] Connecting to {}@{}:{} with key", username, host, port.unwrap_or(22));
+
+    let session = SshSession::connect_key(
+        &host,
+        port.unwrap_or(22),
+        &username,
+        &key_path,
+        passphrase.as_deref(),
+    )?;
+
+    let id = state.registry.register(session);
+
+    Ok(SshInfo {
+        id,
+        host,
+        username,
+        connected: true,
+    })
+}
+
+#[tauri::command]
+pub fn ssh_send_input(
+    id: u32,
+    input: String,
+    state: State<'_, SshState>,
+) -> Result<(), String> {
+    let mut sessions = state.registry.sessions.lock().unwrap();
+
+    if let Some(session) = sessions.get_mut(&id) {
+        session.write_input(input.as_bytes())?;
+        Ok(())
+    } else {
+        Err(format!("SSH session {} not found", id))
+    }
+}
+
+#[tauri::command]
+pub fn ssh_read_output(
+    id: u32,
+    state: State<'_, SshState>,
+) -> Result<String, String> {
+    let mut sessions = state.registry.sessions.lock().unwrap();
+
+    if let Some(session) = sessions.get_mut(&id) {
+        session.read_output()
+    } else {
+        Err(format!("SSH session {} not found", id))
+    }
+}
+
+#[tauri::command]
+pub fn ssh_resize(
+    id: u32,
+    cols: u32,
+    rows: u32,
+    state: State<'_, SshState>,
+) -> Result<(), String> {
+    let mut sessions = state.registry.sessions.lock().unwrap();
+
+    if let Some(session) = sessions.get_mut(&id) {
+        session.resize(cols, rows)
+    } else {
+        Err(format!("SSH session {} not found", id))
+    }
+}
+
+#[tauri::command]
+pub fn ssh_disconnect(
+    id: u32,
+    state: State<'_, SshState>,
+) -> Result<(), String> {
+    if let Some(mut session) = state.registry.remove(id) {
+        session.close()?;
+        eprintln!("[SSH] Disconnected session {}", id);
+        Ok(())
+    } else {
+        Err(format!("SSH session {} not found", id))
+    }
+}
+
+#[tauri::command]
+pub fn ssh_list_sessions(
+    state: State<'_, SshState>,
+) -> Result<Vec<SshInfo>, String> {
+    Ok(state.registry.list())
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -995,7 +1571,7 @@ pub async fn ai_query_stream_internal(
                                         .arg(command)
                                         .output()
                                         .map_err(|e| format!("Failed to execute: {}", e))?;
-                                    
+
                                     let mut result = String::from_utf8_lossy(&output.stdout).to_string();
                                     if !output.stderr.is_empty() {
                                         result.push_str("\n");
@@ -1006,9 +1582,58 @@ pub async fn ai_query_stream_internal(
                                     Err("Missing 'command' argument".to_string())
                                 }
                             },
+                            Some("edit_file") => {
+                                if let (Some(path), Some(old_str), Some(new_str)) = (
+                                    args.get("path").and_then(|p| p.as_str()),
+                                    args.get("old_string").and_then(|o| o.as_str()),
+                                    args.get("new_string").and_then(|n| n.as_str())
+                                ) {
+                                    eprintln!("[edit_file] ⚡ TOOL EXECUTION ⚡ Editing: {}", path);
+                                    let expanded = shellexpand::tilde(path).to_string();
+                                    let content = std::fs::read_to_string(&expanded)
+                                        .map_err(|e| format!("Failed to read {}: {}", path, e))?;
+
+                                    if !content.contains(old_str) {
+                                        Err(format!("old_string not found in file '{}'", path))
+                                    } else {
+                                        let replace_all = args.get("replace_all")
+                                            .and_then(|r| r.as_bool())
+                                            .unwrap_or(false);
+                                        let new_content = if replace_all {
+                                            content.replace(old_str, new_str)
+                                        } else {
+                                            content.replacen(old_str, new_str, 1)
+                                        };
+                                        std::fs::write(&expanded, &new_content)
+                                            .map_err(|e| format!("Failed to write {}: {}", path, e))?;
+                                        Ok(format!("Successfully edited '{}'", path))
+                                    }
+                                } else {
+                                    Err("Missing 'path', 'old_string', or 'new_string' argument".to_string())
+                                }
+                            },
+                            Some("web_fetch") => {
+                                if let Some(url) = args.get("url").and_then(|u| u.as_str()) {
+                                    eprintln!("[web_fetch] ⚡ TOOL EXECUTION ⚡ Fetching: {}", url);
+                                    let client = reqwest::blocking::Client::builder()
+                                        .timeout(std::time::Duration::from_secs(10))
+                                        .build()
+                                        .map_err(|e| format!("HTTP client error: {}", e))?;
+                                    let response = client.get(url)
+                                        .header("User-Agent", "Warp_Open/1.0")
+                                        .send()
+                                        .map_err(|e| format!("Failed to fetch: {}", e))?;
+                                    let body = response.text()
+                                        .map_err(|e| format!("Failed to read body: {}", e))?;
+                                    let text = html_to_text(&body);
+                                    Ok(text.chars().take(5000).collect::<String>())
+                                } else {
+                                    Err("Missing 'url' argument".to_string())
+                                }
+                            },
                             _ => Err(format!("Unknown tool: {:?}", tool_name))
                         };
-                        
+
                         // Add tool result as system message for AI context (not displayed in UI)
                         let result_msg = match &result {
                             Ok(output) => format!("[Tool Result]\n{}", output),

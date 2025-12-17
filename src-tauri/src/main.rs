@@ -18,6 +18,7 @@ mod monitoring;
 mod scheduler;
 mod phase1_6_tests;
 mod ollama;
+mod ssh_session;
 
 use commands::{
     spawn_pty, send_input, resize_pty, read_pty, close_pty, start_pty_output_stream,
@@ -33,7 +34,11 @@ use commands::{
     agent_unregister, phase6_create_plan, phase6_get_plan, phase6_get_pending_plans,
     phase6_update_plan_status, phase6_update_plan_index, phase6_delete_plan,
     get_monitoring_events, clear_monitoring_phase, clear_monitoring_all, start_scheduler,
-    stop_scheduler, run_phase1_6_auto, PtyRegistry
+    stop_scheduler, run_phase1_6_auto, PtyRegistry,
+    // New features
+    edit_file, web_fetch, get_shell_completions, get_ai_completion,
+    ssh_connect_password, ssh_connect_key, ssh_send_input, ssh_read_output,
+    ssh_resize, ssh_disconnect, ssh_list_sessions, SshState,
 };
 use session::{save_session, load_session};
 use ollama::{query_ollama_stream, query_ollama, list_ollama_models};
@@ -168,6 +173,7 @@ fn main() {
         })
         .manage(PtyRegistry::new())
         .manage(ConversationState::new())
+        .manage(SshState::new())
         .manage(Arc::new(Mutex::new(telemetry_store)))
         .manage(Arc::new(Mutex::new(policy_store)))
         .manage(agent_coordinator)
@@ -251,6 +257,19 @@ fn main() {
             save_session,
             load_session,
             get_app_version,
+            // New features for Warp/Claude Code parity
+            edit_file,
+            web_fetch,
+            get_shell_completions,
+            get_ai_completion,
+            // SSH support
+            ssh_connect_password,
+            ssh_connect_key,
+            ssh_send_input,
+            ssh_read_output,
+            ssh_resize,
+            ssh_disconnect,
+            ssh_list_sessions,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Tauri application");
