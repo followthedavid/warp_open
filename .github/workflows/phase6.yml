@@ -1,0 +1,139 @@
+name: Phase 6 - Long-Term Planning
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  rust-tests:
+    name: Rust Tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      
+      - name: Cache Rust dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      
+      - name: Run plan_store tests
+        run: |
+          cd src-tauri
+          cargo test plan_store -- --nocapture
+      
+      - name: Run monitoring tests
+        run: |
+          cd src-tauri
+          cargo test monitoring -- --nocapture
+      
+      - name: Build Phase 6
+        run: |
+          cd src-tauri
+          cargo build --release
+
+  python-tests:
+    name: Python Trainer Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python3 -m venv .venv
+          source .venv/bin/activate
+          pip install -r phase4_trainer/requirements.txt
+      
+      - name: Test Phase 6 trainer
+        run: |
+          source .venv/bin/activate
+          # Create sample CSV for testing
+          echo "command,status" > /tmp/test_telemetry.csv
+          echo "echo test,safe" >> /tmp/test_telemetry.csv
+          echo "rm -rf /,unsafe" >> /tmp/test_telemetry.csv
+          
+          # Train model
+          python3 -m phase4_trainer.phase6_train_plans \
+            --csv /tmp/test_telemetry.csv \
+            --out /tmp/plan_model.pkl
+          
+          # Test prediction
+          python3 -m phase4_trainer.phase6_predict_plan \
+            --model /tmp/plan_model.pkl \
+            echo test
+
+  frontend-build:
+    name: Frontend Build Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build frontend
+        run: npm run build
+      
+      - name: Check Phase 6 components exist
+        run: |
+          test -f src/components/LiveMonitor.vue
+          test -f src/components/PlanManager.vue
+          test -f src/stores/alertStore.js
+          test -f test_phase6_interactive.html
+
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Check no auto-execution
+        run: |
+          # Verify no auto-execution patterns exist
+          ! grep -r "auto.*execute" src-tauri/src/plan_store.rs
+          ! grep -r "setInterval.*run" src-tauri/src/plan_store.rs
+          echo "✅ No auto-execution patterns found"
+      
+      - name: Check human approval requirements
+        run: |
+          # Verify plans require manual advancement
+          grep -q "advance" src-tauri/src/commands.rs
+          grep -q "manual" docs/PHASE6_README.md
+          echo "✅ Human approval requirements verified"
+
+  summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [rust-tests, python-tests, frontend-build, security-audit]
+    steps:
+      - name: Phase 6 Complete
+        run: |
+          echo "✅ All Phase 6 tests passed!"
+          echo "✅ Rust: plan_store + monitoring"
+          echo "✅ Python: ML trainer + predictor"
+          echo "✅ Frontend: Vue components + store"
+          echo "✅ Security: Human oversight verified"

@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Warp Phase 3 Interactive Tester</title>
+<style>
+body { 
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+  margin: 20px; 
+  background: #1a1a1a;
+  color: #e0e0e0;
+}
+h1 { color: #4CAF50; }
+button { 
+  margin: 5px; 
+  padding: 10px 15px; 
+  background: #2196F3;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+button:hover { background: #1976D2; }
+button:active { background: #0D47A1; }
+.batch { 
+  border: 1px solid #444; 
+  padding: 15px; 
+  margin-bottom: 15px; 
+  background: #252525;
+  border-radius: 6px;
+}
+.status { font-weight: bold; }
+.auto { color: #4CAF50; font-weight: bold; }
+.dep { color: #2196F3; font-weight: bold; }
+.rollback { 
+  background: #f44336; 
+  color: white; 
+}
+.rollback:hover { background: #d32f2f; }
+.controls { 
+  margin-bottom: 20px; 
+  padding: 15px;
+  background: #252525;
+  border-radius: 6px;
+}
+.log {
+  background: #1a1a1a;
+  border: 1px solid #444;
+  padding: 10px;
+  margin-top: 20px;
+  max-height: 300px;
+  overflow-y: auto;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+}
+.log-entry { 
+  margin: 5px 0; 
+  padding: 5px;
+  border-left: 3px solid #2196F3;
+  padding-left: 10px;
+}
+.error { color: #f44336; }
+.success { color: #4CAF50; }
+</style>
+</head>
+<body>
+<h1>🧪 Phase 3 Interactive Tester</h1>
+
+<div class="controls">
+  <h3>Controls</h3>
+  <button id="refresh">🔄 Refresh Batches</button>
+  <button id="createBatch">➕ Create Test Batch (4 commands)</button>
+  <button id="createChain">🔗 Create Dependent Batch Chain</button>
+  <button id="getSettings">⚙️ Get Autonomy Settings</button>
+  <button id="clearLog">🗑️ Clear Log</button>
+</div>
+
+<div id="batches"></div>
+
+<div class="log">
+  <h3>Activity Log</h3>
+  <div id="logEntries"></div>
+</div>
+
+<script>
+const batchesDiv = document.getElementById('batches');
+const logDiv = document.getElementById('logEntries');
+
+function log(message, type = 'info') {
+  const entry = document.createElement('div');
+  entry.className = `log-entry ${type}`;
+  entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+  logDiv.appendChild(entry);
+  logDiv.scrollTop = logDiv.scrollHeight;
+}
+
+async function refreshBatches() {
+  try {
+    batchesDiv.innerHTML = '<p>Loading batches...</p>';
+    log('Fetching batches...');
+    
+    const batches = await window.__TAURI__.invoke('get_batches');
+    
+    batchesDiv.innerHTML = '';
+    
+    if (batches.length === 0) {
+      batchesDiv.innerHTML = '<p style="color: #999;">No batches found. Create one to get started.</p>';
+      log('No batches found', 'info');
+      return;
+    }
+    
+    log(`Found ${batches.length} batch(es)`, 'success');
+    
+    batches.forEach(batch => {
+      const div = document.createElement('div');
+      div.className = 'batch';
+      
+      const autoStatus = batch.auto_approved ? '🎯 AUTO-APPROVED' : 'Manual';
+      const depStatus = batch.depends_on ? `🔗 Depends on: ${batch.depends_on.substring(0, 8)}...` : 'Independent';
+      
+      div.innerHTML = `
+        <p><strong>Batch ID:</strong> <code>${batch.id}</code></p>
+        <p><strong>Status:</strong> <span class="status">${batch.status}</span></p>
+        <p><strong>Entries:</strong> ${batch.entries?.length || 0} commands</p>
+        <p>
+          <span class="auto">${autoStatus}</span> | 
+          <span class="dep">${depStatus}</span>
+        </p>
+        <button class="approve">✓ Approve</button>
+        <button class="run">▶ Run</button>
+        <button class="rollback">↩ Rollback</button>
+      `;
+      
+      const [approveBtn, runBtn, rollbackBtn] = div.querySelectorAll('button');
+
+      approveBtn.onclick = async () => {
+        try {
+          log(`Approving batch ${batch.id.substring(0, 8)}...`);
+          await window.__TAURI__.invoke('approve_batch', { 
+            batchId: batch.id, 
+            autonomyToken: null 
+          });
+          log(`Batch approved successfully`, 'success');
+          refreshBatches();
+        } catch (err) {
+          log(`Error approving batch: ${err}`, 'error');
+        }
+      };
+      
+      runBtn.onclick = async () => {
+        try {
+          log(`Running batch ${batch.id.substring(0, 8)}...`);
+          await window.__TAURI__.invoke('run_batch', { 
+            batchId: batch.id, 
+            autonomyToken: null 
+          });
+          log(`Batch execution started`, 'success');
+          setTimeout(refreshBatches, 2000);
+        } catch (err) {
+          log(`Error running batch: ${err}`, 'error');
+        }
+      };
+      
+      rollbackBtn.onclick = async () => {
+        try {
+          log(`Rolling back batch ${batch.id.substring(0, 8)}...`);
+          await window.__TAURI__.invoke('rollback_batch', { 
+            batchId: batch.id, 
+            autonomyToken: null 
+          });
+          log(`Rollback completed`, 'success');
+          refreshBatches();
+        } catch (err) {
+          log(`Error during rollback: ${err}`, 'error');
+        }
+      };
+
+      batchesDiv.appendChild(div);
+    });
+  } catch (err) {
+    batchesDiv.innerHTML = `<p class="error">Error loading batches: ${err}</p>`;
+    log(`Failed to fetch batches: ${err}`, 'error');
+  }
+}
+
+document.getElementById('refresh').onclick = refreshBatches;
+
+document.getElementById('createBatch').onclick = async () => {
+  try {
+    log('Creating test batch with 4 commands...');
+    const bid = await window.__TAURI__.invoke('create_batch', {
+      tabId: 1,
+      entries: [
+        { tool: 'execute_shell', args: { command: 'echo "Phase 3 Test 1"' } },
+        { tool: 'execute_shell', args: { command: 'pwd' } },
+        { tool: 'execute_shell', args: { command: 'whoami' } },
+        { tool: 'execute_shell', args: { command: 'date' } }
+      ]
+    });
+    log(`Batch created: ${bid}`, 'success');
+    refreshBatches();
+  } catch (err) {
+    log(`Error creating batch: ${err}`, 'error');
+  }
+};
+
+document.getElementById('createChain').onclick = async () => {
+  try {
+    log('Creating parent batch...');
+    const parentId = await window.__TAURI__.invoke('create_batch', {
+      tabId: 1,
+      entries: [
+        { tool: 'execute_shell', args: { command: 'echo "Parent batch"' } }
+      ]
+    });
+    log(`Parent batch created: ${parentId.substring(0, 8)}...`, 'success');
+    
+    log('Creating dependent child batch...');
+    const childId = await window.__TAURI__.invoke('create_batch', {
+      tabId: 1,
+      entries: [
+        { tool: 'execute_shell', args: { command: 'echo "Child batch (depends on parent)"' } }
+      ]
+    });
+    
+    await window.__TAURI__.invoke('set_batch_dependency', {
+      batchId: childId,
+      parentId: parentId
+    });
+    
+    log(`Child batch created: ${childId.substring(0, 8)}... (depends on parent)`, 'success');
+    refreshBatches();
+  } catch (err) {
+    log(`Error creating batch chain: ${err}`, 'error');
+  }
+};
+
+document.getElementById('getSettings').onclick = async () => {
+  try {
+    log('Fetching autonomy settings...');
+    const settings = await window.__TAURI__.invoke('get_autonomy_settings');
+    log(`Settings: ${JSON.stringify(settings, null, 2)}`, 'info');
+  } catch (err) {
+    log(`Error fetching settings: ${err}`, 'error');
+  }
+};
+
+document.getElementById('clearLog').onclick = () => {
+  logDiv.innerHTML = '';
+  log('Log cleared');
+};
+
+// Initial load
+log('Phase 3 Interactive Tester loaded', 'success');
+refreshBatches();
+</script>
+</body>
+</html>

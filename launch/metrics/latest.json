@@ -1,0 +1,118 @@
+{
+  "timestamp": 1765938446424,
+  "github": {
+    "stars": 46194,
+    "forks": 3229,
+    "watchers": 289,
+    "openIssues": 99,
+    "closedIssues": 97,
+    "openPRs": 30,
+    "mergedPRs": 12,
+    "contributors": 10,
+    "releases": 0,
+    "totalDownloads": 0,
+    "topContributors": [
+      {
+        "login": "actions-user",
+        "contributions": 167
+      },
+      {
+        "login": "bcherny",
+        "contributions": 67
+      },
+      {
+        "login": "ant-kurt",
+        "contributions": 20
+      },
+      {
+        "login": "ashwin-ant",
+        "contributions": 19
+      },
+      {
+        "login": "bogini",
+        "contributions": 18
+      }
+    ],
+    "recentIssues": [
+      {
+        "number": 14262,
+        "title": "[FEATURE] Add support for RULE.md",
+        "labels": [
+          "enhancement"
+        ]
+      },
+      {
+        "number": 14261,
+        "title": "$200/Month \"Max\" Subscription Provides ~12 Usable Days Due to Weekly Rate Limits + Wasted Tokens on Tool Bugs",
+        "labels": [
+          "bug",
+          "enhancement",
+          "area:cost",
+          "area:core"
+        ]
+      },
+      {
+        "number": 14260,
+        "title": "I don't have any bug report content to work with. Please provide the bug report or issue description so I can generate an appropriate GitHub issue title.",
+        "labels": [
+          "bug",
+          "platform:macos",
+          "area:tools",
+          "area:api"
+        ]
+      },
+      {
+        "number": 14259,
+        "title": "[FEATURE] PrePlanMode and PostPlanMode Hook Events",
+        "labels": [
+          "enhancement",
+          "has repro",
+          "area:core"
+        ]
+      },
+      {
+        "number": 14258,
+        "title": "[FEATURE] PostCompact Hook Event and Compaction Content Control",
+        "labels": [
+          "enhancement",
+          "has repro",
+          "area:core"
+        ]
+      }
+    ],
+    "recentPRs": [
+      {
+        "number": 14212,
+        "title": "feat: Complete MCP Server Installation Solution for Claude Desktop",
+        "author": "N3M3S1SK41R0S"
+      },
+      {
+        "number": 14130,
+        "title": "Update code-review plugin for claude-code-action",
+        "author": "fvolcic"
+      },
+      {
+        "number": 14117,
+        "title": "Add 'git checkout -b' to allowed tools",
+        "author": "tylerjharden"
+      },
+      {
+        "number": 13972,
+        "title": "feat(plugins): update agents in feature-dev plugin to use Opus",
+        "author": "TyceHerrman"
+      },
+      {
+        "number": 13949,
+        "title": "feat(plugins): add windows-nul-fix plugin to auto-remove problematic nul files",
+        "author": "kp222x"
+      }
+    ]
+  },
+  "trends": {
+    "starsToday": 0,
+    "issuesOpened": 0,
+    "issuesClosed": 0,
+    "prsOpened": 0,
+    "prsMerged": 0
+  }
+}

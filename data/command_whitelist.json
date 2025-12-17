@@ -1,0 +1,9 @@
+[
+  {"cmd": "ls", "args": ["-la"]},
+  {"cmd": "cat", "args": []},
+  {"cmd": "pwd", "args": []},
+  {"cmd": "echo", "args": []},
+  {"cmd": "git", "args": ["status"]},
+  {"cmd": "npm", "args": ["test"]},
+  {"cmd": "node", "args": ["--version"]}
+]

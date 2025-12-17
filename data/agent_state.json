@@ -1,0 +1,54 @@
+{
+  "queue": [
+    {
+      "id": "cmd_1764545932366_5010",
+      "createdAt": "2025-11-30T23:38:52.367Z",
+      "approved": true,
+      "type": "test",
+      "payload": {
+        "description": "Test whitelisted command"
+      },
+      "approvedBy": "test-user",
+      "approvedAt": "2025-11-30T23:42:15.145Z"
+    },
+    {
+      "id": "cmd_1764546143367_1206",
+      "createdAt": "2025-11-30T23:42:23.368Z",
+      "approved": true,
+      "type": "test",
+      "payload": {
+        "description": "Dangerous command"
+      },
+      "approvedBy": "test-user",
+      "approvedAt": "2025-11-30T23:42:29.902Z"
+    }
+  ],
+  "logs": [
+    {
+      "ts": "2025-11-30T23:38:31.253Z",
+      "level": "info",
+      "message": "AI Agent server started on port 4005"
+    },
+    {
+      "ts": "2025-11-30T23:38:52.367Z",
+      "level": "info",
+      "message": "Enqueued test cmd_1764545932366_5010"
+    },
+    {
+      "ts": "2025-11-30T23:42:15.145Z",
+      "level": "info",
+      "message": "Command cmd_1764545932366_5010 approved=true"
+    },
+    {
+      "ts": "2025-11-30T23:42:23.368Z",
+      "level": "info",
+      "message": "Enqueued test cmd_1764546143367_1206"
+    },
+    {
+      "ts": "2025-11-30T23:42:29.902Z",
+      "level": "info",
+      "message": "Command cmd_1764546143367_1206 approved=true"
+    }
+  ],
+  "results": {}
+}

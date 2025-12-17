@@ -1,0 +1,167 @@
+🔍 LLM App Discovery Report
+Generated: Mon Dec  1 00:09:17 PST 2025
+----------------------------------------
+
+📌 PROCESSES
+
+--- Processes matching 'ChatGPT' ---
+65863 /Applications/ChatGPT.app/Contents/MacOS/ChatGPT
+74261 Contents/Resources/ChatGPTHelper
+
+--- Processes matching 'Claude' ---
+
+--- Processes matching 'Anthropic' ---
+
+--- Processes matching 'DeepSeek' ---
+
+--- Processes matching 'OpenAI' ---
+
+--- Processes matching 'GPT' ---
+65863 /Applications/ChatGPT.app/Contents/MacOS/ChatGPT
+74261 Contents/Resources/ChatGPTHelper
+
+--- Processes matching 'LLM' ---
+
+📡 LOCAL PORTS (LISTENING)
+
+🔌 UNIX SOCKETS
+(none)
+
+📂 FILE HANDLES (fs-usage style)
+
+--- File handles for PID 65863 (ChatGPT) ---
+
+--- File handles for PID 65863 (GPT) ---
+
+📦 APPLICATION BUNDLES
+
+--- Found app: /Applications/ChatGPT.app ---
+- MacOS Executables:
+total 280
+drwxr-xr-x   3 davidquinton  admin      96 Oct 10 17:54 .
+drwxr-xr-x  11 davidquinton  admin     352 Oct 10 17:54 ..
+-rwxr-xr-x   1 davidquinton  staff  143040 Nov 25 20:06 ChatGPT
+- Resources:
+total 6096
+drwxr-xr-x  97 davidquinton  admin     3104 Nov 19 23:06 .
+drwxr-xr-x  11 davidquinton  admin      352 Oct 10 17:54 ..
+-rw-r--r--   1 davidquinton  staff   164731 Nov 19 23:06 acknowledgements.html
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 am.lproj
+-rw-r--r--   1 davidquinton  staff    80432 Oct 10 17:54 AppIcon.icns
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 ar.lproj
+-rw-r--r--   1 davidquinton  staff   810400 Nov 25 20:06 Assets.car
+drwxr-xr-x   3 davidquinton  admin       96 Oct 10 17:54 Auth0_Auth0.bundle
+-rw-r--r--   1 davidquinton  staff  1907614 Oct 10 17:54 autopair.mp4
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 bg.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 bn.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 bs.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 ca.lproj
+drwxr-xr-x   3 davidquinton  admin       96 Oct 10 17:54 ChatGPTConnectors_ChatGPTConnectors.bundle
+drwxr-xr-x   3 davidquinton  admin       96 Oct 10 17:54 ChatGPTCore_ChatGPTVoiceCore.bundle
+drwxr-xr-x   3 davidquinton  admin       96 Nov  8 20:07 ChatGPTDesktopCommon_ChatGPTDesktopCommon.bundle
+drwxr-xr-x   3 davidquinton  admin       96 Oct 10 17:54 ChatGPTDisclosures_ChatGPTDisclosures.bundle
+-rwxr-xr-x   1 davidquinton  staff   149008 Nov 25 20:06 ChatGPTHelper
+drwxr-xr-x   3 davidquinton  admin       96 Oct 10 17:54 ChatGPTMedia_ChatGPTMedia.bundle
+drwxr-xr-x   3 davidquinton  admin       96 Oct 10 17:54 ChatGPTMemory_ChatGPTMemory.bundle
+drwxr-xr-x   3 davidquinton  admin       96 Nov  8 20:07 ChatGPTMessageInput_ChatGPTMessageInput.bundle
+drwxr-xr-x   3 davidquinton  admin       96 Oct 10 17:54 ChatGPTPairWithAI_ChatGPTPairWithAI.bundle
+drwxr-xr-x   3 davidquinton  admin       96 Oct 10 17:54 ChatGPTVoice_ChatGPTVoice.bundle
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 cs.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 da.lproj
+drwxr-xr-x   3 davidquinton  admin       96 Oct 10 17:54 Datadog_DatadogCore.bundle
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 de.lproj
+drwxr-xr-x   3 davidquinton  admin       96 Oct 10 17:54 Device_DeviceHaptics.bundle
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 el.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 en.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 es-419.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 es.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 et.lproj
+drwxr-xr-x   3 davidquinton  admin       96 Oct 10 17:54 Factory_Factory.bundle
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 fi.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 fr-CA.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 fr.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 gu.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 hi.lproj
+drwxr-xr-x   3 davidquinton  admin       96 Oct 10 17:54 Highlightr_Highlightr.bundle
+drwxr-xr-x   3 davidquinton  admin       96 Oct 10 17:54 Hive_HiveAV.bundle
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 hr.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 hu.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 hy.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 id.lproj
+drwxr-xr-x   3 davidquinton  admin       96 Oct 10 17:54 iosMath_iosMath.bundle
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 is.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 it.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 ja.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 ka.lproj
+drwxr-xr-x   3 davidquinton  admin       96 Oct 10 17:54 KeyboardShortcuts_KeyboardShortcuts.bundle
+drwxr-xr-x   3 davidquinton  admin       96 Oct 10 17:54 Kingfisher_Kingfisher.bundle
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 kk.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 kn.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 ko.lproj
+drwxr-xr-x   3 davidquinton  admin       96 Oct 10 17:54 LiveKit_LiveKit.bundle
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 lt.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 lv.lproj
+drwxr-xr-x   4 davidquinton  admin      128 Nov 25 20:06 Metadata.appintents
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 mk.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 ml.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 mn.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 mr.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 ms.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 my.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 nb.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 nl.lproj
+drwxr-xr-x   3 davidquinton  admin       96 Oct 10 17:54 OAIMarkdown_OAIMarkdown.bundle
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 pa.lproj
+drwxr-xr-x   3 davidquinton  admin       96 Nov 19 23:06 PhoneNumberKit_PhoneNumberKit.bundle
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 pl.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 pt-PT.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 pt.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 ro.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 ru.lproj
+drwxr-xr-x   3 davidquinton  admin       96 Oct 10 17:54 Segment_Segment.bundle
+drwxr-xr-x   6 davidquinton  admin      192 Oct 10 17:54 Settings.bundle
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 sk.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 sl.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 so.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 sq.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 sr.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 sv.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 sw.lproj
+drwxr-xr-x   3 davidquinton  admin       96 Oct 10 17:54 SwiftCSV_SwiftCSV.bundle
+drwxr-xr-x   3 davidquinton  admin       96 Oct 10 17:54 SwiftProtobuf_SwiftProtobuf.bundle
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 ta.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 te.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 th.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 tl.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 tr.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 uk.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 ur.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 vi.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 zh-Hant.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 zh-HK.lproj
+drwxr-xr-x   5 davidquinton  admin      160 Nov 25 20:06 zh.lproj
+- Searching for node/go/python/js binaries…
+- Strings indicating local servers:
+- XPC Services:
+(none)
+
+🗄  USER CONFIG & LOG FOLDERS
+
+--- /Users/davidquinton/Library/Application Support/com.openai.chat ---
+total 0
+drwxr-xr-x  12 davidquinton  staff   384 Oct 19 13:26 .
+drwx------+ 69 davidquinton  staff  2208 Nov 28 22:05 ..
+drwxr-xr-x   2 davidquinton  staff    64 Oct 19 13:26 app_pairing_extensions
+drwxr-xr-x   3 davidquinton  staff    96 Oct 19 13:25 ChatGPTHelper
+drwxr-xr-x  90 davidquinton  staff  2880 Nov 30 23:28 conversations-v3-0b9e5a6d-58ae-47d6-a0ae-3ee96785e709
+drwxr-xr-x   2 davidquinton  staff    64 Dec  1 00:08 drafts-v2-0b9e5a6d-58ae-47d6-a0ae-3ee96785e709
+drwxr-xr-x   4 davidquinton  staff   128 Oct 19 13:26 gizmos-0b9e5a6d-58ae-47d6-a0ae-3ee96785e709
+drwxr-xr-x   5 davidquinton  staff   160 Oct 19 13:25 io.sentry
+drwxr-xr-x   3 davidquinton  staff    96 Oct 19 13:26 models-0b9e5a6d-58ae-47d6-a0ae-3ee96785e709
+drwxr-xr-x   2 davidquinton  staff    64 Oct 19 13:26 order-order-details-0b9e5a6d-58ae-47d6-a0ae-3ee96785e709
+drwxr-xr-x   2 davidquinton  staff    64 Oct 19 13:26 order-orders-0b9e5a6d-58ae-47d6-a0ae-3ee96785e709
+drwxr-xr-x   3 davidquinton  staff    96 Oct 19 13:26 system-hints-0b9e5a6d-58ae-47d6-a0ae-3ee96785e709
+
+📘 LOGS
+
+----------------------------------------

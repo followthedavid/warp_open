@@ -1,0 +1,43 @@
+name: Warp_Open CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  test:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Run Full Verification
+        run: bash scripts/verify_everything.sh
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results
+          path: |
+            /tmp/warp_status_report.txt
+            /tmp/warp_status_screenshots/
+            playwright-report/

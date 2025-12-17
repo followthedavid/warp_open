@@ -1,0 +1,66 @@
+body { 
+    font-family: monospace; 
+    background: #111; 
+    color: #0f0; 
+    padding: 10px; 
+}
+
+button { 
+    padding: 0.5em 1em; 
+    margin-top: 10px; 
+    background: #222; 
+    color: #0f0; 
+    border: 1px solid #0f0; 
+    cursor: pointer; 
+}
+
+button:hover {
+    background: #0f0;
+    color: #111;
+}
+
+#log { 
+    border: 1px solid #0f0; 
+    padding: 5px; 
+    height: 300px; 
+    overflow-y: auto; 
+    background: #000;
+}
+
+#log p {
+    margin: 2px 0;
+    font-size: 12px;
+}
+
+#timeline { 
+    background: #111; 
+    border: 1px solid #0f0; 
+    height: 50px; 
+    position: relative; 
+    margin-top: 20px; 
+}
+
+.evt { 
+    width: 2px; 
+    height: 50px; 
+    position: absolute; 
+    background: lime; 
+    cursor: pointer;
+}
+
+.evt:hover {
+    background: yellow;
+    width: 4px;
+}
+
+.selection { 
+    background: rgba(0, 255, 0, 0.3); 
+    position: absolute; 
+    height: 50px; 
+}
+
+h1 {
+    color: #0f0;
+    font-size: 20px;
+    margin-bottom: 20px;
+}

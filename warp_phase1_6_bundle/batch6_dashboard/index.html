@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Warp Phase 1–6 Live Dashboard</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<h1>Warp Phase 1–6 Live Dashboard</h1>
+
+<div id="log" style="height:300px; overflow-y:auto;"></div>
+<div id="timeline" style="height:50px; position:relative; margin-top:20px;"></div>
+
+<button id="startTest">Run Full Phase 1–6 Test</button>
+
+<script type="module">
+import { Timeline } from './timeline.js';
+
+const logDiv = document.getElementById('log');
+const timelineDiv = document.getElementById('timeline');
+const timeline = new Timeline('timeline');
+timeline.enableSelection();
+
+function log(msg) {
+    const p = document.createElement('p');
+    p.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    logDiv.appendChild(p);
+    logDiv.scrollTop = logDiv.scrollHeight;
+}
+
+// For Tauri integration
+if (window.__TAURI__) {
+    const { listen } = window.__TAURI__.event;
+    const { invoke } = window.__TAURI__.tauri;
+
+    listen('phase1_6_log', event => {
+        log(event.payload);
+        timeline.addEvent({ timestamp: Date.now(), phase: 'Log', desc: event.payload });
+    });
+
+    document.getElementById('startTest').addEventListener('click', async () => {
+        log("Starting full Phase 1–6 automated test...");
+        try { 
+            await invoke('run_phase1_6_auto'); 
+        } catch(e) { 
+            log("Error invoking backend: " + e); 
+        }
+    });
+} else {
+    // Standalone mode - simulate events
+    log("Dashboard loaded in standalone mode");
+    document.getElementById('startTest').addEventListener('click', () => {
+        log("Simulating Phase 1–6 execution...");
+        for (let i = 1; i <= 6; i++) {
+            setTimeout(() => {
+                log(`Phase ${i} executing...`);
+                timeline.addEvent({ timestamp: Date.now(), phase: `Phase ${i}`, desc: `Phase ${i} execution` });
+            }, i * 1000);
+        }
+    });
+}
+</script>
+</body>
+</html>

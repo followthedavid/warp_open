@@ -1,0 +1,106 @@
+import { ref, computed } from 'vue'
+import { invoke } from '@tauri-apps/api/tauri'
+
+export interface TerminalTab {
+  id: number
+  name: string
+  ptyId: number
+  type: 'terminal'
+}
+
+interface TerminalTabsState {
+  tabs: TerminalTab[]
+  activeTabId: number | null
+  nextId: number
+}
+
+const state = ref<TerminalTabsState>({
+  tabs: [],
+  activeTabId: null,
+  nextId: 1
+})
+
+export function useTerminalTabs() {
+  const tabs = computed(() => state.value.tabs)
+  const activeTabId = computed(() => state.value.activeTabId)
+  const activeTab = computed(() => 
+    state.value.tabs.find(t => t.id === state.value.activeTabId) || null
+  )
+
+  async function createTerminalTab(name?: string): Promise<TerminalTab | null> {
+    try {
+      // Spawn a new PTY
+      const ptyInfo = await invoke<{ id: number }>('spawn_pty', { 
+        shell: null // Use default shell
+      })
+      
+      const tab: TerminalTab = {
+        id: state.value.nextId++,
+        name: name || `Terminal ${state.value.tabs.length + 1}`,
+        ptyId: ptyInfo.id,
+        type: 'terminal'
+      }
+
+      state.value.tabs.push(tab)
+      state.value.activeTabId = tab.id
+
+      console.log('[useTerminalTabs] Created terminal tab:', tab)
+      return tab
+    } catch (error) {
+      console.error('[useTerminalTabs] Failed to create terminal tab:', error)
+      return null
+    }
+  }
+
+  async function closeTerminalTab(tabId: number) {
+    const tab = state.value.tabs.find(t => t.id === tabId)
+    if (!tab) return
+
+    try {
+      // Close the PTY
+      await invoke('close_pty', { id: tab.ptyId })
+    } catch (error) {
+      console.error('[useTerminalTabs] Failed to close PTY:', error)
+    }
+
+    // Remove tab from state
+    const index = state.value.tabs.findIndex(t => t.id === tabId)
+    if (index !== -1) {
+      state.value.tabs.splice(index, 1)
+    }
+
+    // Switch to another tab if this was active
+    if (state.value.activeTabId === tabId) {
+      if (state.value.tabs.length > 0) {
+        state.value.activeTabId = state.value.tabs[state.value.tabs.length - 1].id
+      } else {
+        state.value.activeTabId = null
+      }
+    }
+
+    console.log('[useTerminalTabs] Closed terminal tab:', tabId)
+  }
+
+  function setActiveTab(tabId: number | null) {
+    if (tabId === null || state.value.tabs.find(t => t.id === tabId)) {
+      state.value.activeTabId = tabId
+    }
+  }
+
+  function renameTab(tabId: number, newName: string) {
+    const tab = state.value.tabs.find(t => t.id === tabId)
+    if (tab) {
+      tab.name = newName
+    }
+  }
+
+  return {
+    tabs,
+    activeTabId,
+    activeTab,
+    createTerminalTab,
+    closeTerminalTab,
+    setActiveTab,
+    renameTab
+  }
+}

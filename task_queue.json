@@ -1,0 +1,265 @@
+{
+  "description": "Task queue for autonomous development. ChatGPT adds tasks, Claude implements them.",
+  "config": {
+    "autoFetchFromChatGPT": true,
+    "threadId": "693f18ee-0290-8329-956d-2f873f9308b4"
+  },
+  "pending": [
+    {
+      "id": "1765783214368",
+      "priority": "medium",
+      "title": "⃣ Terminal Output Virtualization",
+      "description": "Goal: Improve performance for very large terminal outputs. Files / Components: TerminalPane.vue, useRecording.ts, create new useVirtualBuffer.ts composable. Actions: Implement virtual scrolling for terminal output: render only visible lines + small buffer. Ensure recording, search, and snapshots work seamlessly with virtualized output. Benchmark performance with >50,000 lines of output to confirm smooth scrolling.",
+      "createdAt": "2025-12-15T07:20:14.368Z"
+    },
+    {
+      "id": "1765783214369",
+      "priority": "medium",
+      "title": "⃣ Plugin System Enhancements",
+      "description": "Goal: Make plugins safer and easier to debug. Files / Components: src/plugins/types.ts, PluginManager.ts, PluginPanel.vue. Actions: Add plugin manifest validation (fields: name, apiVersion, permissions, entry). Add lifecycle hooks: onActivate, onDeactivate, onTerminalReady. Implement plugin error logging and permission violation reporting. Optional: enforce per-plugin execution timeout to avoid blocking UI.",
+      "createdAt": "2025-12-15T07:20:14.380Z"
+    },
+    {
+      "id": "1765783214370",
+      "priority": "medium",
+      "title": "⃣ Session Crash Recovery",
+      "description": "Goal: Ensure users don’t lose work when app or PTY crashes. Files / Components: useSessionStore.ts, TerminalPane.vue, Rust backend PTY management. Actions: Persist essential session info: pane layout, cwd, last command, active tab. On app restart, restore previous layout and spawn PTYs. Show toast notifications for recovered or lost sessions. Handle PTY terminations gracefully mid-session.",
+      "createdAt": "2025-12-15T07:20:14.380Z"
+    },
+    {
+      "id": "1765783214371",
+      "priority": "medium",
+      "title": "⃣ Recording & Replay Feature Expansion",
+      "description": "Goal: Make recordings more robust and shareable. Files / Components: useRecording.ts, useReplay.ts, RecordingControls.vue. Actions: Include terminal metadata (OS, shell, terminal size) in recordings. Add trimming, jump-to-time, and speed-jump controls in UI. Normalize timestamps for smoother playback. Ensure multi-pane recordings replay correctly.",
+      "createdAt": "2025-12-15T07:20:14.383Z"
+    },
+    {
+      "id": "1765783214372",
+      "priority": "medium",
+      "title": "⃣ Codebase Refactor & Documentation",
+      "description": "Goal: Improve maintainability and onboarding for contributors. Files / Components: Core composables, stores, and UI components. Actions: Organize code: @/core/ for PTY/session/buffer logic, @/features/ for UI/features/plugins. Enforce stricter TypeScript rules, ESLint, and prettier. Add integration tests: recording + search, plugin lifecycle, session recovery. Document architecture and plugin API in ARCHITECTURE.md and PLUGINS.md. If you want, I can convert these into a ready-to-run task queue JSON so Claude Code can pick them up directly in your autonomous development loop. Do you want me to do that next?",
+      "createdAt": "2025-12-15T07:20:14.383Z"
+    }
+  ],
+  "inProgress": [],
+  "completed": [
+    {
+      "id": "31",
+      "priority": "low",
+      "title": "Integration Tests for Core Flows",
+      "completedAt": "2025-12-15T08:20:00Z",
+      "result": "Created src/__tests__/useSessionStore.test.ts with 15 tests covering: session persistence, recovery hints, CWD updates, auto-save timing, session expiry (24h), version compatibility, edge cases. All 53 tests pass."
+    },
+    {
+      "id": "30",
+      "priority": "low",
+      "title": "Recording Keyboard Shortcuts",
+      "completedAt": "2025-12-15T08:18:00Z",
+      "result": "Added Cmd+Shift+R for start/stop recording, Cmd+Shift+U for pause/resume. Integrated useRecording into App.vue with handleToggleRecording/handlePauseResumeRecording handlers. Updated KeyboardShortcuts.vue with new Recording section."
+    },
+    {
+      "id": "29",
+      "priority": "medium",
+      "title": "Integrate SessionRecovery into App",
+      "completedAt": "2025-12-15T08:15:00Z",
+      "result": "Added SessionRecovery.vue lazy-loaded in App.vue with showSessionRecovery state. Integrated useSessionStore with: hasRecoverableSession check on mount, auto-recover option, startAutoSave on mount, forceSave on beforeunload, stopAutoSave on unmount, updateSessionState for tab changes."
+    },
+    {
+      "id": "28",
+      "priority": "medium",
+      "title": "PLUGINS.md Documentation",
+      "completedAt": "2025-12-15T08:12:00Z",
+      "result": "Created comprehensive PLUGINS.md with: plugin interface, context API, permissions system, event types, rendering panels, manifest format, security model, API version history, example command-frequency plugin, best practices, troubleshooting guide."
+    },
+    {
+      "id": "27",
+      "priority": "medium",
+      "title": "Code-Splitting for Better Bundle Size",
+      "completedAt": "2025-12-15T08:10:00Z",
+      "result": "Added manualChunks to vite.config.js for monaco, xterm, vue-vendor. Used defineAsyncComponent for lazy-loading: TerminalWindow, EditorPane, AIChatTab, DeveloperDashboard, CommandPalette, KeyboardShortcuts, SnapshotsPanel, GlobalSearch, AnalyticsDashboard, SessionRecovery. Main bundle reduced from 4MB to 95KB."
+    },
+    {
+      "id": "26",
+      "priority": "medium",
+      "title": "Cross-Cutting Codebase Quality Pass",
+      "completedAt": "2025-12-15T00:55:00Z",
+      "result": "Created ARCHITECTURE.md documenting directory structure, core concepts (terminal, layout, session, recording, plugin systems), data flow, performance optimizations, security model, state persistence, and testing. Added eslint.config.js with rules for composable naming, TypeScript safety, Vue best practices. All 38 tests passing."
+    },
+    {
+      "id": "25",
+      "priority": "medium",
+      "title": "Recording & Replay Quality Improvements",
+      "completedAt": "2025-12-15T00:50:00Z",
+      "result": "Enhanced useRecording.ts with: RecordingMetadata (os, shell, termType, appVersion, sizeChanges, commandBoundaries), GistRecording export format, markCommandBoundary for command tracking, setTrimMarkers for trim start/end, getNextCommandBoundary/getPreviousCommandBoundary for seeking, exportAsGist and downloadGistExport functions. Normalized timing in getTrimmedEvents."
+    },
+    {
+      "id": "24",
+      "priority": "medium",
+      "title": "Terminal State Persistence & Recovery",
+      "completedAt": "2025-12-15T00:45:00Z",
+      "result": "Created useSessionStore.ts composable with PersistedSession interface (tabs, activeTabId, lastKnownCwds, recoveryHints), auto-save every 30 seconds, updateSession/updatePaneCwd/updateRecoveryHint methods, hasRecoverableSession check (max 24h), forceSave for app close. Created SessionRecovery.vue modal for opt-in recovery with auto-recover preference."
+    },
+    {
+      "id": "23",
+      "priority": "medium",
+      "title": "Plugin API v1 Hardening",
+      "completedAt": "2025-12-15T00:40:00Z",
+      "result": "Updated types.ts with: CURRENT_API_VERSION/SUPPORTED_API_VERSIONS constants, apiVersion field in PluginManifest/WarpPlugin, extended lifecycle hooks (onActivate/onDeactivate/onTerminalReady), PluginError interface, PluginDevLogEntry/PluginPermissionGrant/PluginValidationResult types. Enhanced PluginManager.ts with dev console logging (addDevLog/addPermissionGrant), validatePlugin function, notifyTerminalReady, clearDevLogs/clearPermissionGrants. Created PluginDevConsole.vue with logs/permissions/plugins tabs, filtering, and real-time display."
+    },
+    {
+      "id": "22",
+      "priority": "medium",
+      "title": "Terminal Output Virtualization v2",
+      "completedAt": "2025-12-15T00:30:00Z",
+      "result": "Created useTerminalBuffer.ts composable with BufferLine/BufferWindow/BufferSearchResult interfaces, 100k+ line capacity, appendOutput with line indexing, getWindow for windowed rendering with overscan, search with indexed word lookup and regex support, setViewport/scrollToLine for virtual scrolling, exportBuffer/importBuffer for recording integration. Added 18 tests for buffer functionality. Integrated into TerminalPane.vue with exposed getBuffer/searchBuffer/getAllOutput/getBufferStats methods."
+    },
+    {
+      "id": "21",
+      "priority": "medium",
+      "title": "Snapshot Management Enhancements",
+      "completedAt": "2025-12-15T00:15:00Z",
+      "result": "Added date filtering (Today/Week/Month/All) to useSnapshots.ts with dateFilter state, setDateFilter function, and filteredSnapshots computed property. Updated SnapshotsPanel.vue with date filter buttons UI, styled with green accent for active state. Already had: search by name/description/tags, tag filters, export/import for individual/all snapshots, auto-snapshot on exit."
+    },
+    {
+      "id": "20",
+      "priority": "medium",
+      "title": "Split-Pane Drag-to-Resize Polishing",
+      "completedAt": "2025-12-14T23:30:00Z",
+      "result": "Enhanced LayoutRenderer.vue with: double-click on divider to reset ratio to 50%, showRatioHint for transient feedback with green indicator, animated ratio indicator (fadeInOut keyframes), smooth CSS transitions during non-drag resize. Already had: MIN_PANE_SIZE (10%), MAX_PANE_SIZE (90%), drag handle, ratio persistence to session/snapshots. Improved UX with better visual feedback."
+    },
+    {
+      "id": "19",
+      "priority": "high",
+      "title": "Terminal Output Virtualization",
+      "completedAt": "2025-12-14T23:00:00Z",
+      "result": "Added xterm-addon-webgl for GPU-accelerated rendering with fallback to canvas. Implemented batched write system (batchedWrite/flushWrites) with configurable throttle interval (16ms default = 60fps). Added performance preferences: maxOutputBuffer, batchWriteSize, throttleInterval, enableGPUAcceleration. Increased default scrollback to 5000 lines. Added fast scroll options. WebGL addon auto-disposes on context loss."
+    },
+    {
+      "id": "18",
+      "priority": "low",
+      "title": "Session Analytics Dashboard",
+      "completedAt": "2025-12-14T22:00:00Z",
+      "result": "Created useAnalytics.ts composable to track commands executed (CommandExecution interface with timestamps, paneId, tabId), pane focus time (PaneTime tracking), most-used commands (computed). Created AnalyticsDashboard.vue with summary cards (total commands, unique commands, active time, session age), tabbed views for Commands/Activity/Time/History, bar charts for hourly/daily activity, export to CSV/JSON. Integrated into App.vue with Cmd+Shift+A shortcut. Command tracking via TerminalPane input buffer detecting Enter key presses."
+    },
+    {
+      "id": "17",
+      "priority": "medium",
+      "title": "AI Command Suggestion Improvements",
+      "completedAt": "2025-12-14T21:30:00Z",
+      "result": "Enhanced AIOverlay.vue with inline suggestions panel showing context-aware recommendations. Added Suggestion interface, generateSuggestions() that calls Ollama with buildSuggestionPrompt(), parseSuggestions() to extract structured suggestions. UI shows type badges (NEXT/FIX/INFO/OPT) with color coding, copy command button, ask-about-suggestion button, dismiss actions. Suggestions persist to localStorage, collapsible panel, auto-generates on last command change."
+    },
+    {
+      "id": "1",
+      "priority": "high",
+      "title": "Create unsigned DMG build workflow",
+      "completedAt": "2025-12-14T12:00:00Z",
+      "result": "Created build_unsigned.sh script with instructions for Gatekeeper bypass"
+    },
+    {
+      "id": "2",
+      "priority": "medium",
+      "title": "Document signing process",
+      "completedAt": "2025-12-14T12:00:00Z",
+      "result": "Created comprehensive RELEASE.md with signing, notarization, CI/CD, and troubleshooting"
+    },
+    {
+      "id": "3",
+      "priority": "low",
+      "title": "Add workspace export/import",
+      "completedAt": "2025-12-14T12:30:00Z",
+      "result": "Added exportSnapshot, exportAllSnapshots, importSnapshots functions to useSnapshots"
+    },
+    {
+      "id": "4",
+      "priority": "high",
+      "title": "Drag & Drop Pane Resizing",
+      "completedAt": "2025-12-14T13:30:00Z",
+      "result": "Added updateSplitRatio to useTabs, ratio indicator during drag, tooltip on hover, persists to session"
+    },
+    {
+      "id": "5",
+      "priority": "high",
+      "title": "Persistent AI Conversations",
+      "completedAt": "2025-12-14T13:45:00Z",
+      "result": "Already implemented in AIOverlay.vue - stores per-pane in localStorage with timestamps, collapse/expand, 20 entry limit"
+    },
+    {
+      "id": "6",
+      "priority": "medium",
+      "title": "Search Across Tabs & Panes",
+      "completedAt": "2025-12-14T14:30:00Z",
+      "result": "Created GlobalSearch.vue with fuzzy search through tabs, panes, CWDs, and terminal output. Keyboard navigation (up/down/enter/esc), Cmd+Shift+F shortcut, integrated into Command Palette and Keyboard Shortcuts help"
+    },
+    {
+      "id": "7",
+      "priority": "medium",
+      "title": "Advanced Snapshot Features",
+      "completedAt": "2025-12-14T15:00:00Z",
+      "result": "Added tags support (add/remove per snapshot), search bar for filtering by name/description/tags, tag filter buttons, auto-snapshot on app exit, enhanced UI in SnapshotsPanel with tag management"
+    },
+    {
+      "id": "8",
+      "priority": "low",
+      "title": "Multi-Platform Build",
+      "completedAt": "2025-12-14T15:30:00Z",
+      "result": "Created cross-platform-build.yml GitHub Actions workflow with builds for macOS (Intel + Apple Silicon), Linux (AppImage/DEB), and Windows (MSI/EXE). Updated tauri.conf.json with all platform bundle configs. Added icon assets for all platforms. Auto-creates draft GitHub releases on tag push."
+    },
+    {
+      "id": "9",
+      "priority": "high",
+      "title": "Rust Panic Prevention - Remove unwrap() calls",
+      "completedAt": "2025-12-14T17:00:00Z",
+      "result": "Replaced all .lock().unwrap() calls with lock_or_recover() helper that recovers from poisoned mutexes. Replaced .emit_all().unwrap() with let _ = to ignore logging failures. Removed unused PoisonError import."
+    },
+    {
+      "id": "10",
+      "priority": "high",
+      "title": "Performance - Replace PTY polling with events",
+      "completedAt": "2025-12-14T17:30:00Z",
+      "result": "Added start_pty_output_stream Rust command with adaptive polling (16ms-100ms based on activity). Updated TerminalPane.vue to use Tauri events via listen() instead of setInterval polling. Added debounced resize handler. Includes fallback to polling if events fail."
+    },
+    {
+      "id": "11",
+      "priority": "medium",
+      "title": "Type Safety - Remove all any types",
+      "completedAt": "2025-12-14T18:00:00Z",
+      "result": "Fixed any types in useSnapshots.ts (added Tab import, unknown for validators), useAI.ts (added InvokeFn/ListenFn/UnlistenFn types), GlobalSearch.vue (added LayoutNode interface), useCodeExecution.ts (added InvokeFn type, StepData interface), App.vue (added Snapshot import, ToolExecutedPayload interface)."
+    },
+    {
+      "id": "12",
+      "priority": "medium",
+      "title": "Toast Notification System",
+      "completedAt": "2025-12-14T18:30:00Z",
+      "result": "Created useToast.ts composable with success/error/warning/info methods, auto-dismiss timers, and max toast limit. Created ToastContainer.vue component with animated transitions, type-specific styling, and dismiss functionality. Integrated into App.vue and replaced alert() calls with toast notifications."
+    },
+    {
+      "id": "13",
+      "priority": "medium",
+      "title": "Add Unit Tests for Composables",
+      "completedAt": "2025-12-14T19:00:00Z",
+      "result": "Set up Vitest with @vue/test-utils and jsdom. Created vitest.config.ts with Vue plugin and coverage support. Added test/test:watch/test:coverage npm scripts. Created comprehensive tests for useToast (9 tests) and useSnapshots (11 tests). All 20 tests passing."
+    },
+    {
+      "id": "14",
+      "priority": "high",
+      "title": "Terminal Recording & Replay",
+      "completedAt": "2025-12-14T20:00:00Z",
+      "result": "Created useRecording.ts composable (record output/input with timestamps, export/import JSON, max 50 recordings). Created useReplay.ts with playback controls (play/pause/seek/speed). Created RecordingControls.vue with Record/Stop/Replay buttons, progress bar, speed selector, recordings list modal. Integrated into TerminalPane.vue - captures PTY output/input when recording."
+    },
+    {
+      "id": "15",
+      "priority": "high",
+      "title": "Plugin/Extension API (Safe First Iteration)",
+      "completedAt": "2025-12-14T20:30:00Z",
+      "result": "Created src/plugins/ with types.ts (WarpPlugin interface, PluginContext, permissions system), PluginManager.ts (register/unregister, event dispatch, sandboxed state/API/logger), CommandFrequencyPlugin demo, PluginPanel.vue (load/enable/disable plugins, render area). Security: read-only PTY, no env vars, isolated state, permission-based events."
+    },
+    {
+      "id": "16",
+      "priority": "medium",
+      "title": "Advanced Search Enhancements",
+      "completedAt": "2025-12-14T21:00:00Z",
+      "result": "Enhanced GlobalSearch.vue with: regex search (toggle + timeout protection), case sensitivity toggle, scope selector (all/tabs/cwds/output/snapshots), search history (last 10, arrow key navigation, localStorage persistence), multi-pane search (up to 3 matches per pane), snapshot search by name/description/tags. All with match highlighting."
+    }
+  ],
+  "failed": []
+}

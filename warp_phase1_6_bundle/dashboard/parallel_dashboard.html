@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Warp Phase 1–6 Parallel Live Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  body {
+    font-family: 'Courier New', monospace;
+    background: #000;
+    color: #0f0;
+    padding: 20px;
+    overflow-x: hidden;
+  }
+  
+  h1 {
+    color: #0ff;
+    text-align: center;
+    margin-bottom: 20px;
+    text-shadow: 0 0 10px #0ff;
+    animation: glow 2s ease-in-out infinite alternate;
+  }
+  
+  @keyframes glow {
+    from { text-shadow: 0 0 10px #0ff, 0 0 20px #0ff; }
+    to { text-shadow: 0 0 20px #0ff, 0 0 30px #0ff, 0 0 40px #0ff; }
+  }
+  
+  #connection-status {
+    text-align: center;
+    margin-bottom: 15px;
+    padding: 10px;
+    border-radius: 5px;
+    font-weight: bold;
+  }
+  
+  #connection-status.connected {
+    background: #002200;
+    color: #0f0;
+    border: 1px solid #0f0;
+  }
+  
+  #connection-status.disconnected {
+    background: #220000;
+    color: #f00;
+    border: 1px solid #f00;
+    animation: blink 1s infinite;
+  }
+  
+  @keyframes blink {
+    50% { opacity: 0.5; }
+  }
+  
+  #stats {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  
+  .stat-box {
+    background: #001100;
+    border: 1px solid #0f0;
+    padding: 10px 20px;
+    border-radius: 5px;
+    min-width: 120px;
+    text-align: center;
+  }
+  
+  .stat-label {
+    font-size: 0.8em;
+    opacity: 0.7;
+  }
+  
+  .stat-value {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: #0ff;
+  }
+  
+  #phase-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+  }
+  
+  .phase-panel {
+    border: 2px solid #0f0;
+    background: #000;
+    border-radius: 5px;
+    overflow: hidden;
+    box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
+  }
+  
+  .phase-header {
+    background: #003300;
+    padding: 10px;
+    font-weight: bold;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #0f0;
+  }
+  
+  .phase-title {
+    font-size: 1.1em;
+  }
+  
+  .phase-status {
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 0.8em;
+  }
+  
+  .status-idle { background: #333; color: #999; }
+  .status-running { background: #004400; color: #0f0; animation: pulse 1s infinite; }
+  .status-success { background: #006600; color: #0f0; }
+  .status-warn { background: #664400; color: #ff0; }
+  .status-error { background: #660000; color: #f00; }
+  
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+  
+  .phase-log {
+    height: 200px;
+    overflow-y: auto;
+    padding: 10px;
+    font-size: 0.85em;
+    background: #000;
+  }
+  
+  .phase-log::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  .phase-log::-webkit-scrollbar-track {
+    background: #001100;
+  }
+  
+  .phase-log::-webkit-scrollbar-thumb {
+    background: #0f0;
+    border-radius: 4px;
+  }
+  
+  .log-entry {
+    margin-bottom: 5px;
+    padding: 3px 5px;
+    border-left: 3px solid transparent;
+  }
+  
+  .log-entry.success {
+    color: #0f0;
+    border-left-color: #0f0;
+  }
+  
+  .log-entry.warn {
+    color: #ff0;
+    border-left-color: #ff0;
+  }
+  
+  .log-entry.error {
+    color: #f00;
+    border-left-color: #f00;
+  }
+  
+  .log-entry.info {
+    color: #0af;
+    border-left-color: #0af;
+  }
+  
+  .log-timestamp {
+    opacity: 0.6;
+    font-size: 0.9em;
+    margin-right: 5px;
+  }
+  
+  #controls {
+    text-align: center;
+    margin-top: 20px;
+    padding: 15px;
+    background: #001100;
+    border: 1px solid #0f0;
+    border-radius: 5px;
+  }
+  
+  button {
+    background: #003300;
+    color: #0f0;
+    border: 1px solid #0f0;
+    padding: 10px 20px;
+    margin: 0 5px;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+    font-size: 1em;
+    border-radius: 3px;
+    transition: all 0.3s;
+  }
+  
+  button:hover {
+    background: #005500;
+    box-shadow: 0 0 10px #0f0;
+  }
+  
+  button:active {
+    background: #007700;
+  }
+  
+  #system-panel {
+    margin-top: 20px;
+    border: 2px solid #0ff;
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  
+  #system-panel .phase-header {
+    background: #003344;
+    border-bottom-color: #0ff;
+  }
+  
+  #system-panel .phase-log {
+    height: 150px;
+  }
+</style>
+</head>
+<body>
+<h1>⚡ Warp Phase 1–6 Parallel Live Dashboard ⚡</h1>
+
+<div id="connection-status" class="disconnected">
+  ● DISCONNECTED - Connecting to ws://localhost:9000...
+</div>
+
+<div id="stats">
+  <div class="stat-box">
+    <div class="stat-label">Total Events</div>
+    <div class="stat-value" id="stat-total">0</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-label">Success</div>
+    <div class="stat-value" id="stat-success" style="color: #0f0;">0</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-label">Warnings</div>
+    <div class="stat-value" id="stat-warn" style="color: #ff0;">0</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-label">Errors</div>
+    <div class="stat-value" id="stat-error" style="color: #f00;">0</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-label">Uptime</div>
+    <div class="stat-value" id="stat-uptime">00:00</div>
+  </div>
+</div>
+
+<div id="phase-grid">
+  <div class="phase-panel" data-phase="1">
+    <div class="phase-header">
+      <span class="phase-title">Phase 1: Plan Store</span>
+      <span class="phase-status status-idle">IDLE</span>
+    </div>
+    <div class="phase-log" id="log-phase1"></div>
+  </div>
+  
+  <div class="phase-panel" data-phase="2">
+    <div class="phase-header">
+      <span class="phase-title">Phase 2: Agent Store</span>
+      <span class="phase-status status-idle">IDLE</span>
+    </div>
+    <div class="phase-log" id="log-phase2"></div>
+  </div>
+  
+  <div class="phase-panel" data-phase="3">
+    <div class="phase-header">
+      <span class="phase-title">Phase 3: Dependency Resolution</span>
+      <span class="phase-status status-idle">IDLE</span>
+    </div>
+    <div class="phase-log" id="log-phase3"></div>
+  </div>
+  
+  <div class="phase-panel" data-phase="4">
+    <div class="phase-header">
+      <span class="phase-title">Phase 4: Batch Store</span>
+      <span class="phase-status status-idle">IDLE</span>
+    </div>
+    <div class="phase-log" id="log-phase4"></div>
+  </div>
+  
+  <div class="phase-panel" data-phase="5">
+    <div class="phase-header">
+      <span class="phase-title">Phase 5: Monitoring</span>
+      <span class="phase-status status-idle">IDLE</span>
+    </div>
+    <div class="phase-log" id="log-phase5"></div>
+  </div>
+  
+  <div class="phase-panel" data-phase="6">
+    <div class="phase-header">
+      <span class="phase-title">Phase 6: Scheduler</span>
+      <span class="phase-status status-idle">IDLE</span>
+    </div>
+    <div class="phase-log" id="log-phase6"></div>
+  </div>
+</div>
+
+<div id="system-panel" class="phase-panel">
+  <div class="phase-header">
+    <span class="phase-title">⚠️ System Alerts & Events</span>
+    <span class="phase-status status-idle">MONITORING</span>
+  </div>
+  <div class="phase-log" id="log-system"></div>
+</div>
+
+<div id="controls">
+  <button onclick="clearAllLogs()">Clear All Logs</button>
+  <button onclick="exportLogs()">Export Logs</button>
+  <button onclick="toggleAutoScroll()">Auto-Scroll: <span id="autoscroll-status">ON</span></button>
+  <button onclick="reconnectWebSocket()">Reconnect</button>
+</div>
+
+<script>
+let ws = null;
+let autoScroll = true;
+let startTime = Date.now();
+let stats = { total: 0, success: 0, warn: 0, error: 0 };
+const MAX_LOG_ENTRIES = 100;
+
+function connectWebSocket() {
+  const wsUrl = 'ws://localhost:9000';
+  const statusDiv = document.getElementById('connection-status');
+  
+  statusDiv.textContent = `● CONNECTING to ${wsUrl}...`;
+  statusDiv.className = 'disconnected';
+  
+  ws = new WebSocket(wsUrl);
+  
+  ws.onopen = () => {
+    statusDiv.textContent = `● CONNECTED to ${wsUrl}`;
+    statusDiv.className = 'connected';
+    console.log('WebSocket connected');
+  };
+  
+  ws.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      handleEvent(data);
+    } catch (e) {
+      console.error('Invalid JSON received:', event.data, e);
+    }
+  };
+  
+  ws.onerror = (error) => {
+    console.error('WebSocket error:', error);
+    statusDiv.textContent = `● ERROR - Connection failed`;
+    statusDiv.className = 'disconnected';
+  };
+  
+  ws.onclose = () => {
+    statusDiv.textContent = `● DISCONNECTED - Reconnecting in 3s...`;
+    statusDiv.className = 'disconnected';
+    console.log('WebSocket disconnected');
+    setTimeout(connectWebSocket, 3000);
+  };
+}
+
+function handleEvent(data) {
+  const { phase, event, type, timestamp } = data;
+  
+  // Update statistics
+  stats.total++;
+  if (type === 'success') stats.success++;
+  else if (type === 'warn') stats.warn++;
+  else if (type === 'error') stats.error++;
+  
+  updateStats();
+  
+  // Determine log container
+  let logContainer;
+  let statusBadge;
+  
+  if (phase === 'system' || phase === 'alert') {
+    logContainer = document.getElementById('log-system');
+    statusBadge = document.querySelector('#system-panel .phase-status');
+  } else {
+    logContainer = document.getElementById(`log-phase${phase}`);
+    const panel = document.querySelector(`.phase-panel[data-phase="${phase}"]`);
+    statusBadge = panel?.querySelector('.phase-status');
+  }
+  
+  if (!logContainer) return;
+  
+  // Create log entry
+  const entry = document.createElement('div');
+  entry.className = `log-entry ${type || 'info'}`;
+  
+  const time = timestamp ? new Date(timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
+  entry.innerHTML = `<span class="log-timestamp">[${time}]</span>${event}`;
+  
+  logContainer.appendChild(entry);
+  
+  // Limit log entries
+  while (logContainer.children.length > MAX_LOG_ENTRIES) {
+    logContainer.removeChild(logContainer.firstChild);
+  }
+  
+  // Auto-scroll if enabled
+  if (autoScroll) {
+    logContainer.scrollTop = logContainer.scrollHeight;
+  }
+  
+  // Update phase status badge
+  if (statusBadge) {
+    statusBadge.className = 'phase-status';
+    if (type === 'success') {
+      statusBadge.classList.add('status-running');
+      statusBadge.textContent = 'ACTIVE';
+    } else if (type === 'warn') {
+      statusBadge.classList.add('status-warn');
+      statusBadge.textContent = 'WARNING';
+    } else if (type === 'error') {
+      statusBadge.classList.add('status-error');
+      statusBadge.textContent = 'ERROR';
+    } else {
+      statusBadge.classList.add('status-running');
+      statusBadge.textContent = 'RUNNING';
+    }
+  }
+}
+
+function updateStats() {
+  document.getElementById('stat-total').textContent = stats.total;
+  document.getElementById('stat-success').textContent = stats.success;
+  document.getElementById('stat-warn').textContent = stats.warn;
+  document.getElementById('stat-error').textContent = stats.error;
+}
+
+function updateUptime() {
+  const elapsed = Math.floor((Date.now() - startTime) / 1000);
+  const minutes = Math.floor(elapsed / 60);
+  const seconds = elapsed % 60;
+  document.getElementById('stat-uptime').textContent = 
+    `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+function clearAllLogs() {
+  document.querySelectorAll('.phase-log').forEach(log => {
+    log.innerHTML = '';
+  });
+  stats = { total: 0, success: 0, warn: 0, error: 0 };
+  updateStats();
+}
+
+function exportLogs() {
+  const logs = {};
+  document.querySelectorAll('.phase-log').forEach(log => {
+    const id = log.id;
+    logs[id] = Array.from(log.children).map(entry => entry.textContent).join('\n');
+  });
+  
+  const blob = new Blob([JSON.stringify(logs, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `warp_phase1_6_logs_${new Date().toISOString()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function toggleAutoScroll() {
+  autoScroll = !autoScroll;
+  document.getElementById('autoscroll-status').textContent = autoScroll ? 'ON' : 'OFF';
+}
+
+function reconnectWebSocket() {
+  if (ws) {
+    ws.close();
+  }
+  connectWebSocket();
+}
+
+// Initialize
+connectWebSocket();
+setInterval(updateUptime, 1000);
+</script>
+</body>
+</html>

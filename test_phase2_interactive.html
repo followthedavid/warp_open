@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Phase 2 Interactive Test</title>
+  <style>
+    body {
+      font-family: monospace;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    h1 { color: #4a9eff; }
+    h2 { color: #10b981; margin-top: 30px; }
+    .test-section {
+      background: #2d2d2d;
+      border: 1px solid #404040;
+      border-radius: 8px;
+      padding: 15px;
+      margin: 15px 0;
+    }
+    button {
+      background: #4a9eff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 5px;
+      font-size: 14px;
+    }
+    button:hover { background: #6db3ff; }
+    button:disabled {
+      background: #555;
+      cursor: not-allowed;
+    }
+    .success { color: #22c55e; }
+    .error { color: #dc2626; }
+    .pending { color: #f59e0b; }
+    pre {
+      background: #0f172a;
+      padding: 10px;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-size: 12px;
+    }
+    .batch-card {
+      background: #1a1a1a;
+      border: 1px solid #404040;
+      border-radius: 6px;
+      padding: 10px;
+      margin: 10px 0;
+    }
+    .batch-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .status-badge {
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: bold;
+    }
+    .status-pending { background: #3b82f6; }
+    .status-approved { background: #10b981; }
+    .status-running { background: #f59e0b; }
+    .status-completed { background: #22c55e; }
+    .entry-list {
+      list-style: none;
+      padding: 0;
+      margin: 10px 0;
+    }
+    .entry-list li {
+      padding: 5px;
+      border-bottom: 1px solid #404040;
+      font-size: 12px;
+    }
+    .log-output {
+      max-height: 300px;
+      overflow-y: auto;
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🧪 Phase 2: Interactive Test Suite</h1>
+  <p>This page tests the Phase 2 Semi-Autonomy system by directly calling Tauri commands.</p>
+
+  <!-- Test 1: Get Batches -->
+  <div class="test-section">
+    <h2>Test 1: Get Batches</h2>
+    <button onclick="testGetBatches()">Run Test</button>
+    <div id="test1-result"></div>
+  </div>
+
+  <!-- Test 2: Create Test Batch (via backend) -->
+  <div class="test-section">
+    <h2>Test 2: Create Safe Batch</h2>
+    <p>Creates a batch with 3 safe commands: echo, pwd, whoami</p>
+    <button onclick="testCreateBatch()">Create Batch</button>
+    <div id="test2-result"></div>
+  </div>
+
+  <!-- Test 3: Approve Batch -->
+  <div class="test-section">
+    <h2>Test 3: Approve Batch</h2>
+    <p>Select a batch and approve it:</p>
+    <select id="batch-select">
+      <option value="">-- Select Batch --</option>
+    </select>
+    <button onclick="testApproveBatch()">Approve</button>
+    <div id="test3-result"></div>
+  </div>
+
+  <!-- Test 4: Run Batch -->
+  <div class="test-section">
+    <h2>Test 4: Run Batch</h2>
+    <p>Select an approved batch and run it:</p>
+    <select id="batch-run-select">
+      <option value="">-- Select Batch --</option>
+    </select>
+    <button onclick="testRunBatch()">Run</button>
+    <div id="test4-result"></div>
+  </div>
+
+  <!-- Test 5: Live Batch Display -->
+  <div class="test-section">
+    <h2>Test 5: Live Batch Display</h2>
+    <button onclick="refreshBatchDisplay()">Refresh</button>
+    <button onclick="toggleAutoRefresh()">Toggle Auto-Refresh</button>
+    <div id="batch-display"></div>
+  </div>
+
+  <!-- Test 6: Check Audit Log -->
+  <div class="test-section">
+    <h2>Test 6: Audit Log</h2>
+    <p>Check ~/PHASE2_AUDIT.log after running batches</p>
+    <button onclick="showAuditInstructions()">Show Instructions</button>
+    <div id="test6-result"></div>
+  </div>
+
+  <!-- Console Log -->
+  <div class="test-section">
+    <h2>Console Log</h2>
+    <button onclick="clearLog()">Clear</button>
+    <pre id="console-log" class="log-output"></pre>
+  </div>
+
+  <script>
+    // Check if running in Tauri
+    if (!window.__TAURI__) {
+      document.body.innerHTML = '<h1 style="color: red;">❌ Error: Not running in Tauri environment</h1><p>Please open this file through the Warp app, not directly in a browser.</p>';
+    }
+
+    const { invoke } = window.__TAURI__.tauri;
+    const { listen } = window.__TAURI__.event;
+    let autoRefreshInterval = null;
+    let currentBatches = [];
+
+    function log(message, type = 'info') {
+      const logEl = document.getElementById('console-log');
+      const timestamp = new Date().toISOString();
+      const color = type === 'error' ? '#dc2626' : type === 'success' ? '#22c55e' : '#d4d4d4';
+      logEl.innerHTML += `<span style="color: ${color}">[${timestamp}] ${message}</span>\n`;
+      logEl.scrollTop = logEl.scrollHeight;
+      console.log(message);
+    }
+
+    function clearLog() {
+      document.getElementById('console-log').innerHTML = '';
+    }
+
+    // Test 1: Get Batches
+    async function testGetBatches() {
+      const resultEl = document.getElementById('test1-result');
+      resultEl.innerHTML = '<span class="pending">⏳ Fetching batches...</span>';
+      
+      try {
+        const batches = await invoke('get_batches');
+        currentBatches = batches;
+        log(`✅ Fetched ${batches.length} batches`, 'success');
+        
+        resultEl.innerHTML = `
+          <span class="success">✅ Success: Found ${batches.length} batches</span>
+          <pre>${JSON.stringify(batches, null, 2)}</pre>
+        `;
+        
+        // Update batch selects
+        updateBatchSelects(batches);
+      } catch (error) {
+        log(`❌ Error fetching batches: ${error}`, 'error');
+        resultEl.innerHTML = `<span class="error">❌ Error: ${error}</span>`;
+      }
+    }
+
+    // Test 2: Create Batch (simulated - we'd need a backend endpoint for this)
+    async function testCreateBatch() {
+      const resultEl = document.getElementById('test2-result');
+      resultEl.innerHTML = '<span class="pending">⏳ Creating batch...</span>';
+      
+      log('ℹ️ Note: Direct batch creation requires backend integration', 'info');
+      log('Creating mock batch data for display purposes', 'info');
+      
+      const mockBatch = {
+        id: crypto.randomUUID(),
+        entries: [
+          {
+            id: crypto.randomUUID(),
+            tool: 'execute_shell',
+            args: { command: 'echo Phase2Test' },
+            status: 'Pending',
+            result: null,
+            safe_score: 100,
+            requires_manual: false
+          },
+          {
+            id: crypto.randomUUID(),
+            tool: 'execute_shell',
+            args: { command: 'pwd' },
+            status: 'Pending',
+            result: null,
+            safe_score: 100,
+            requires_manual: false
+          },
+          {
+            id: crypto.randomUUID(),
+            tool: 'execute_shell',
+            args: { command: 'whoami' },
+            status: 'Pending',
+            result: null,
+            safe_score: 100,
+            requires_manual: false
+          }
+        ],
+        creator_tab: 1,
+        status: 'Pending',
+        approved_by: null
+      };
+      
+      log(`📦 Mock batch created: ${mockBatch.id}`, 'success');
+      
+      resultEl.innerHTML = `
+        <span class="success">✅ Mock batch created (ID: ${mockBatch.id.substring(0, 8)}...)</span>
+        <pre>${JSON.stringify(mockBatch, null, 2)}</pre>
+        <p><strong>Note:</strong> To create real batches, use the backend's create_batch command or send AI messages that generate multiple tool calls.</p>
+      `;
+    }
+
+    // Test 3: Approve Batch
+    async function testApproveBatch() {
+      const select = document.getElementById('batch-select');
+      const batchId = select.value;
+      const resultEl = document.getElementById('test3-result');
+      
+      if (!batchId) {
+        resultEl.innerHTML = '<span class="error">❌ Please select a batch</span>';
+        return;
+      }
+      
+      resultEl.innerHTML = '<span class="pending">⏳ Approving batch...</span>';
+      log(`Approving batch: ${batchId}`, 'info');
+      
+      try {
+        await invoke('approve_batch', { 
+          batchId: batchId,
+          autonomyToken: null 
+        });
+        log(`✅ Batch approved: ${batchId}`, 'success');
+        resultEl.innerHTML = `<span class="success">✅ Batch approved successfully!</span>`;
+        
+        // Refresh display
+        await testGetBatches();
+        refreshBatchDisplay();
+      } catch (error) {
+        log(`❌ Error approving batch: ${error}`, 'error');
+        resultEl.innerHTML = `<span class="error">❌ Error: ${error}</span>`;
+      }
+    }
+
+    // Test 4: Run Batch
+    async function testRunBatch() {
+      const select = document.getElementById('batch-run-select');
+      const batchId = select.value;
+      const resultEl = document.getElementById('test4-result');
+      
+      if (!batchId) {
+        resultEl.innerHTML = '<span class="error">❌ Please select a batch</span>';
+        return;
+      }
+      
+      resultEl.innerHTML = '<span class="pending">⏳ Running batch...</span>';
+      log(`Running batch: ${batchId}`, 'info');
+      
+      try {
+        await invoke('run_batch', { 
+          batchId: batchId,
+          autonomyToken: null 
+        });
+        log(`✅ Batch execution started: ${batchId}`, 'success');
+        resultEl.innerHTML = `<span class="success">✅ Batch execution started! Check the batch display for updates.</span>`;
+        
+        // Refresh display after a short delay to see results
+        setTimeout(async () => {
+          await testGetBatches();
+          refreshBatchDisplay();
+        }, 1000);
+      } catch (error) {
+        log(`❌ Error running batch: ${error}`, 'error');
+        resultEl.innerHTML = `<span class="error">❌ Error: ${error}</span>`;
+      }
+    }
+
+    // Update batch select dropdowns
+    function updateBatchSelects(batches) {
+      const approveSelect = document.getElementById('batch-select');
+      const runSelect = document.getElementById('batch-run-select');
+      
+      // Clear existing options
+      approveSelect.innerHTML = '<option value="">-- Select Batch --</option>';
+      runSelect.innerHTML = '<option value="">-- Select Batch --</option>';
+      
+      batches.forEach(batch => {
+        const shortId = batch.id.substring(0, 8);
+        
+        // Add to approve select if Pending
+        if (batch.status === 'Pending') {
+          const option = document.createElement('option');
+          option.value = batch.id;
+          option.textContent = `${shortId}... (${batch.status}) - ${batch.entries.length} entries`;
+          approveSelect.appendChild(option);
+        }
+        
+        // Add to run select if Pending or Approved
+        if (batch.status === 'Pending' || batch.status === 'Approved') {
+          const option = document.createElement('option');
+          option.value = batch.id;
+          option.textContent = `${shortId}... (${batch.status}) - ${batch.entries.length} entries`;
+          runSelect.appendChild(option);
+        }
+      });
+    }
+
+    // Refresh batch display
+    async function refreshBatchDisplay() {
+      const displayEl = document.getElementById('batch-display');
+      displayEl.innerHTML = '<span class="pending">⏳ Loading batches...</span>';
+      
+      try {
+        const batches = await invoke('get_batches');
+        currentBatches = batches;
+        
+        if (batches.length === 0) {
+          displayEl.innerHTML = '<p>No batches found. Create one to test!</p>';
+          return;
+        }
+        
+        displayEl.innerHTML = batches.map(batch => {
+          const shortId = batch.id.substring(0, 8);
+          const statusClass = `status-${batch.status.toLowerCase()}`;
+          
+          return `
+            <div class="batch-card">
+              <div class="batch-header">
+                <span><strong>Batch:</strong> ${shortId}...</span>
+                <span class="status-badge ${statusClass}">${batch.status}</span>
+              </div>
+              <ul class="entry-list">
+                ${batch.entries.map(entry => `
+                  <li>
+                    <strong>${entry.tool}</strong> - 
+                    ${JSON.stringify(entry.args)} 
+                    <span style="color: ${entry.safe_score === 100 ? '#22c55e' : entry.safe_score === 0 ? '#dc2626' : '#f59e0b'}">
+                      (score: ${entry.safe_score})
+                    </span>
+                    ${entry.result ? `<br>Result: ${entry.result.substring(0, 50)}...` : ''}
+                  </li>
+                `).join('')}
+              </ul>
+            </div>
+          `;
+        }).join('');
+        
+        updateBatchSelects(batches);
+      } catch (error) {
+        displayEl.innerHTML = `<span class="error">❌ Error: ${error}</span>`;
+        log(`❌ Error refreshing batch display: ${error}`, 'error');
+      }
+    }
+
+    // Toggle auto-refresh
+    function toggleAutoRefresh() {
+      if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+        log('🔴 Auto-refresh disabled', 'info');
+      } else {
+        autoRefreshInterval = setInterval(refreshBatchDisplay, 2000);
+        log('🟢 Auto-refresh enabled (2s interval)', 'success');
+      }
+    }
+
+    // Show audit instructions
+    function showAuditInstructions() {
+      const resultEl = document.getElementById('test6-result');
+      resultEl.innerHTML = `
+        <p><strong>To check the audit log, open a terminal and run:</strong></p>
+        <pre>tail -f ~/PHASE2_AUDIT.log</pre>
+        <p><strong>Expected format:</strong></p>
+        <pre>TIMESTAMP|batch:ID|entry:ID|tool:NAME|approved_by:TOKEN|result_hash:MD5</pre>
+        <p><strong>Example:</strong></p>
+        <pre>2025-11-23T10:43:31Z|batch:da9ecd57-9224-45bc|entry:599cd89b-1e45-47b9|tool:execute_shell|approved_by:test_token|result_hash:8b10a73b2b0e7b1b</pre>
+      `;
+    }
+
+    // Listen for batch updates
+    listen('batch_updated', async (event) => {
+      log('📡 Received batch_updated event', 'success');
+      await testGetBatches();
+      refreshBatchDisplay();
+    });
+
+    // Initialize
+    window.addEventListener('load', () => {
+      log('🚀 Phase 2 Interactive Test Suite loaded', 'success');
+      log('Click "Run Test" buttons to test each feature', 'info');
+      testGetBatches();
+      refreshBatchDisplay();
+    });
+  </script>
+</body>
+</html>

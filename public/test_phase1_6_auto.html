@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Warp Phase 1–6 Interactive Tester</title>
+<style>
+  body { 
+    background: #111; 
+    color: #0f0; 
+    font-family: monospace; 
+    padding: 10px;
+    margin: 0;
+  }
+  h2 { 
+    color: #0f0;
+    margin: 10px 0;
+    border-bottom: 1px solid #0f0;
+    padding-bottom: 5px;
+  }
+  #log { 
+    height: 600px; 
+    overflow-y: auto; 
+    border: 1px solid #0f0; 
+    padding: 8px; 
+    margin-top: 10px;
+    background: #000;
+    white-space: pre-wrap;
+    font-size: 12px;
+  }
+  button { 
+    padding: 0.5em 1em; 
+    margin: 5px 5px 10px 0;
+    background: #222;
+    color: #0f0;
+    border: 1px solid #0f0;
+    cursor: pointer;
+    font-family: monospace;
+  }
+  button:hover {
+    background: #0f0;
+    color: #111;
+  }
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .status {
+    padding: 5px 10px;
+    border: 1px solid #0f0;
+    background: #000;
+    display: inline-block;
+    margin-bottom: 10px;
+  }
+</style>
+</head>
+<body>
+<h2>🚀 Warp Phase 1–6 Interactive Tester</h2>
+<div class="status" id="status">Status: Initializing...</div>
+
+<div class="controls">
+  <button id="startButton">▶ Run Full Phase 1–6 Test</button>
+  <button id="startScheduler">⏰ Start Scheduler</button>
+  <button id="stopScheduler">⏸ Stop Scheduler</button>
+  <button id="clearLog">🧹 Clear Log</button>
+</div>
+
+<div id="log"></div>
+
+<script>
+const logContainer = document.getElementById("log");
+const statusEl = document.getElementById("status");
+const startBtn = document.getElementById("startButton");
+const startSchedulerBtn = document.getElementById("startScheduler");
+const stopSchedulerBtn = document.getElementById("stopScheduler");
+const clearLogBtn = document.getElementById("clearLog");
+
+let running = false;
+
+function log(msg) {
+    const timestamp = new Date().toLocaleTimeString();
+    const line = `[${timestamp}] ${msg}\n`;
+    logContainer.textContent += line;
+    logContainer.scrollTop = logContainer.scrollHeight;
+}
+
+function setStatus(msg, color = "#0f0") {
+    statusEl.textContent = `Status: ${msg}`;
+    statusEl.style.borderColor = color;
+    statusEl.style.color = color;
+}
+
+function setRunning(isRunning) {
+    running = isRunning;
+    startBtn.disabled = isRunning;
+    if (isRunning) {
+        setStatus("Running tests...", "#ff0");
+    } else {
+        setStatus("Ready", "#0f0");
+    }
+}
+
+async function runPhase1_6() {
+    log("═══════════════════════════════════");
+    log("Starting full Phase 1–6 automated test...");
+    log("═══════════════════════════════════");
+    setRunning(true);
+    
+    try {
+        await window.__TAURI__.invoke("run_phase1_6_auto");
+        log("═══════════════════════════════════");
+        log("✅ All tests completed successfully!");
+        log("═══════════════════════════════════");
+    } catch(e) {
+        log("❌ Error invoking backend: " + e);
+        setStatus("Error: " + e, "#f00");
+    } finally {
+        setRunning(false);
+    }
+}
+
+async function startScheduler() {
+    log("Starting Phase 6 scheduler...");
+    try {
+        await window.__TAURI__.invoke("start_scheduler");
+        log("✅ Scheduler started (10s interval)");
+        setStatus("Scheduler running", "#0ff");
+    } catch(e) {
+        log("❌ Error starting scheduler: " + e);
+    }
+}
+
+async function stopScheduler() {
+    log("Stopping Phase 6 scheduler...");
+    try {
+        await window.__TAURI__.invoke("stop_scheduler");
+        log("✅ Scheduler stopped");
+        setStatus("Scheduler stopped", "#0f0");
+    } catch(e) {
+        log("❌ Error stopping scheduler: " + e);
+    }
+}
+
+function clearLog() {
+    logContainer.textContent = "";
+    log("Log cleared");
+}
+
+// Listen to backend events for real-time updates
+if (window.__TAURI__ && window.__TAURI__.event) {
+    window.__TAURI__.event.listen("phase1_6_log", (event) => {
+        log(event.payload);
+    });
+    
+    window.__TAURI__.event.listen("scheduler_advance", (event) => {
+        log("🔄 [SCHEDULER] " + event.payload);
+    });
+    
+    window.__TAURI__.event.listen("scheduler_blocked", (event) => {
+        log("🚫 [SCHEDULER] " + event.payload);
+    });
+    
+    window.__TAURI__.event.listen("scheduler_complete", (event) => {
+        log("✅ [SCHEDULER] " + event.payload);
+    });
+    
+    log("✓ Event listeners initialized");
+    setStatus("Ready", "#0f0");
+} else {
+    log("⚠ Warning: Tauri API not available");
+    setStatus("Tauri API not available", "#f00");
+}
+
+// Button event handlers
+startBtn.addEventListener("click", runPhase1_6);
+startSchedulerBtn.addEventListener("click", startScheduler);
+stopSchedulerBtn.addEventListener("click", stopScheduler);
+clearLogBtn.addEventListener("click", clearLog);
+
+// Check for auto-run parameter
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get('autorun') === 'true') {
+    log("🤖 Auto-run mode detected");
+    log("Starting test in 3 seconds...");
+    setTimeout(() => {
+        runPhase1_6();
+    }, 3000);
+}
+
+log("Phase 1-6 Interactive Tester ready");
+log("Click 'Run Full Phase 1-6 Test' to begin");
+</script>
+</body>
+</html>

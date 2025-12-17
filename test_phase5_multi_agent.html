@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phase 5: Policy & Multi-Agent Tester</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Courier New', monospace;
+            background: #0a0a0a;
+            color: #00ff00;
+            padding: 20px;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        h1 { color: #00ff00; margin-bottom: 10px; text-shadow: 0 0 10px #00ff00; }
+        h2 { color: #0099ff; margin-top: 30px; margin-bottom: 15px; font-size: 18px; }
+        .subtitle { color: #888; margin-bottom: 30px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+        .panel {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        .btn {
+            background: #00aa00;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            font-family: inherit;
+        }
+        .btn:hover { background: #00ff00; }
+        .btn-danger { background: #aa0000; color: #fff; }
+        .btn-danger:hover { background: #ff0000; }
+        .btn-secondary { background: #0088cc; color: #fff; }
+        .btn-secondary:hover { background: #00aaff; }
+        input, select, textarea {
+            background: #000;
+            border: 1px solid #333;
+            color: #00ff00;
+            padding: 8px;
+            border-radius: 4px;
+            font-family: inherit;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        .output {
+            background: #000;
+            border: 1px solid #333;
+            padding: 15px;
+            border-radius: 4px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-size: 12px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+        .agent-card {
+            background: #222;
+            border: 1px solid #444;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .agent-card.idle { border-left: 4px solid #888; }
+        .agent-card.running { border-left: 4px solid #00ff00; }
+        .agent-card.blocked { border-left: 4px solid #ff0000; }
+        .rule-card {
+            background: #222;
+            border: 1px solid #444;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            border-left: 4px solid #ff6600;
+        }
+        .suggestion-card {
+            background: #1a1a2e;
+            border: 1px solid #0099ff;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+        .suggestion-card.pending { border-left: 4px solid #ffaa00; }
+        .suggestion-card.applied { border-left: 4px solid #00ff00; }
+        .suggestion-card.rejected { border-left: 4px solid #ff0000; }
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .badge-pending { background: #ffaa00; color: #000; }
+        .badge-applied { background: #00aa00; color: #000; }
+        .badge-rejected { background: #aa0000; color: #fff; }
+        .status { color: #888; font-size: 12px; margin-top: 20px; }
+        .error { color: #ff0000; }
+        .success { color: #00ff00; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚡ Phase 5: Policy Learning & Multi-Agent Coordination Tester</h1>
+        <p class="subtitle">Interactive test interface for Warp Phase 5 features</p>
+
+        <div class="grid">
+            <!-- Policy Management Panel -->
+            <div class="panel">
+                <h2>📋 Policy Management</h2>
+                
+                <button class="btn" onclick="listRules()">List Rules</button>
+                <button class="btn btn-secondary" onclick="listSuggestions()">List Suggestions</button>
+                <button class="btn btn-secondary" onclick="generateSuggestions()">Generate Suggestions</button>
+                
+                <h3 style="margin-top: 20px; color: #0099ff; font-size: 14px;">Manual Policy Diff</h3>
+                <input type="text" id="pattern" placeholder="Pattern (e.g., \\brm\\b)" value="\brm\s+-rf\b">
+                <select id="effect">
+                    <option value="deny">Deny</option>
+                    <option value="allow">Allow</option>
+                </select>
+                <input type="number" id="score" placeholder="Confidence Score (0-1)" step="0.01" value="0.95">
+                <button class="btn" onclick="proposeManualDiff()">Propose Diff</button>
+                
+                <div id="rules" class="output" style="margin-top: 15px;">
+                    <span style="color: #888;">No rules loaded. Click "List Rules"</span>
+                </div>
+            </div>
+
+            <!-- Agent Coordination Panel -->
+            <div class="panel">
+                <h2>🤖 Multi-Agent Coordination</h2>
+                
+                <input type="text" id="agentName" placeholder="Agent Name (optional)">
+                <button class="btn" onclick="registerAgent()">Register Agent</button>
+                <button class="btn btn-secondary" onclick="listAgents()">List Agents</button>
+                
+                <div id="agents" class="output" style="margin-top: 15px;">
+                    <span style="color: #888;">No agents registered. Click "Register Agent"</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Suggestions Panel (Full Width) -->
+        <div class="panel">
+            <h2>💡 Policy Suggestions</h2>
+            <div id="suggestions" class="output">
+                <span style="color: #888;">No suggestions. Click "List Suggestions" or "Generate Suggestions"</span>
+            </div>
+        </div>
+
+        <!-- Logs Panel -->
+        <div class="panel">
+            <h2>📊 Logs</h2>
+            <button class="btn btn-danger" onclick="clearLogs()">Clear Logs</button>
+            <div id="logs" class="output"></div>
+        </div>
+
+        <div class="status">
+            Phase 5 Tester | Commands: policy_*, agent_*, phase5_generate_suggestions
+        </div>
+    </div>
+
+    <script>
+        const { invoke } = window.__TAURI__.tauri;
+        let currentAgents = [];
+        let currentSuggestions = [];
+
+        function log(message, type = 'info') {
+            const logs = document.getElementById('logs');
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? '#ff0000' : type === 'success' ? '#00ff00' : '#00aaff';
+            logs.innerHTML += `<span style="color: ${color}">[${timestamp}]</span> ${message}\n`;
+            logs.scrollTop = logs.scrollHeight;
+        }
+
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+            log('Logs cleared', 'info');
+        }
+
+        async function listRules() {
+            try {
+                const rules = await invoke('policy_list_rules');
+                const rulesDiv = document.getElementById('rules');
+                
+                if (rules.length === 0) {
+                    rulesDiv.innerHTML = '<span style="color: #888;">No policy rules</span>';
+                    log('No policy rules found');
+                    return;
+                }
+
+                rulesDiv.innerHTML = rules.map(r => `
+                    <div class="rule-card">
+                        <strong>${r.effect.toUpperCase()}</strong>: <code>${r.pattern}</code>
+                        <div style="color: #888; font-size: 11px; margin-top: 5px;">
+                            Added by: ${r.added_by || 'unknown'} | 
+                            Confidence: ${r.confidence ? r.confidence.toFixed(2) : 'N/A'} |
+                            ${new Date(r.ts).toLocaleString()}
+                        </div>
+                    </div>
+                `).join('');
+                
+                log(`Loaded ${rules.length} policy rules`, 'success');
+            } catch (e) {
+                log(`Error listing rules: ${e}`, 'error');
+            }
+        }
+
+        async function listSuggestions() {
+            try {
+                currentSuggestions = await invoke('policy_list_suggestions');
+                const sugDiv = document.getElementById('suggestions');
+                
+                if (currentSuggestions.length === 0) {
+                    sugDiv.innerHTML = '<span style="color: #888;">No policy suggestions</span>';
+                    log('No policy suggestions found');
+                    return;
+                }
+
+                sugDiv.innerHTML = currentSuggestions.map((s, idx) => {
+                    const diff = s.diff || { add: [], remove: [] };
+                    return `
+                        <div class="suggestion-card ${s.status}">
+                            <div><strong>Suggestion ${idx + 1}</strong> <span class="badge badge-${s.status}">${s.status.toUpperCase()}</span></div>
+                            <div style="color: #888; font-size: 11px; margin: 5px 0;">
+                                Proposed by: ${s.proposed_by} | ${new Date(s.proposed_at).toLocaleString()}
+                            </div>
+                            <div style="margin: 10px 0; color: #00aaff;">
+                                ${diff.add.length} rules to add, ${diff.remove.length} to remove
+                            </div>
+                            ${diff.add.map(a => `
+                                <div style="background: #111; padding: 8px; border-radius: 3px; margin: 5px 0; font-size: 12px;">
+                                    <code>${a.pattern}</code> → <strong>${a.effect}</strong> (${a.score ? a.score.toFixed(2) : 'N/A'})
+                                </div>
+                            `).join('')}
+                            ${s.status === 'pending' ? `
+                                <div style="margin-top: 10px;">
+                                    <button class="btn" onclick="applySuggestion('${s.id}', ${idx})">✅ Apply</button>
+                                    <button class="btn btn-danger" onclick="rejectSuggestion('${s.id}', ${idx})">❌ Reject</button>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }).join('');
+                
+                log(`Loaded ${currentSuggestions.length} policy suggestions`, 'success');
+            } catch (e) {
+                log(`Error listing suggestions: ${e}`, 'error');
+            }
+        }
+
+        async function applySuggestion(suggestionId, idx) {
+            const token = prompt('⚠️  Type APPLY to confirm applying this policy change:');
+            if (token !== 'APPLY') {
+                log('Apply cancelled (invalid token)', 'error');
+                return;
+            }
+
+            const author = prompt('Enter your name:') || 'anonymous';
+            const comment = prompt('Comment:') || 'Manual approval via tester';
+
+            try {
+                const version = await invoke('policy_apply_suggestion', {
+                    suggestion_id: suggestionId,
+                    author: author,
+                    comment: comment,
+                    token: token
+                });
+                log(`✅ Applied suggestion. Version: ${version}`, 'success');
+                await listSuggestions();
+                await listRules();
+            } catch (e) {
+                log(`Error applying suggestion: ${e}`, 'error');
+            }
+        }
+
+        async function rejectSuggestion(suggestionId, idx) {
+            if (!confirm('Reject this suggestion?')) return;
+            
+            const author = prompt('Enter your name:') || 'anonymous';
+            
+            try {
+                await invoke('policy_reject_suggestion', {
+                    suggestion_id: suggestionId,
+                    author: author
+                });
+                log(`❌ Rejected suggestion`, 'success');
+                await listSuggestions();
+            } catch (e) {
+                log(`Error rejecting suggestion: ${e}`, 'error');
+            }
+        }
+
+        async function proposeManualDiff() {
+            const pattern = document.getElementById('pattern').value;
+            const effect = document.getElementById('effect').value;
+            const score = parseFloat(document.getElementById('score').value);
+
+            const diff = {
+                add: [{ pattern, effect, score }],
+                remove: [],
+                meta: { source: 'manual_tester', timestamp: new Date().toISOString() }
+            };
+
+            try {
+                const suggestionId = await invoke('policy_propose_diff', {
+                    proposed_by: 'manual_tester',
+                    diff_json: JSON.stringify(diff)
+                });
+                log(`✅ Proposed diff: ${suggestionId}`, 'success');
+                await listSuggestions();
+            } catch (e) {
+                log(`Error proposing diff: ${e}`, 'error');
+            }
+        }
+
+        async function generateSuggestions() {
+            if (!confirm('Run Python suggestion generator? This requires trained model.')) return;
+
+            log('Running suggestion generator...', 'info');
+            try {
+                const result = await invoke('phase5_generate_suggestions', {
+                    csv_path: null,
+                    model_path: null
+                });
+                log('✅ Suggestion generator completed', 'success');
+                log(result, 'info');
+                await listSuggestions();
+            } catch (e) {
+                log(`Error generating suggestions: ${e}`, 'error');
+            }
+        }
+
+        async function registerAgent() {
+            const name = document.getElementById('agentName').value || null;
+            try {
+                const agentId = await invoke('agent_register', { name });
+                log(`✅ Registered agent: ${agentId}`, 'success');
+                document.getElementById('agentName').value = '';
+                await listAgents();
+            } catch (e) {
+                log(`Error registering agent: ${e}`, 'error');
+            }
+        }
+
+        async function listAgents() {
+            try {
+                currentAgents = await invoke('agent_list');
+                const agentsDiv = document.getElementById('agents');
+                
+                if (currentAgents.length === 0) {
+                    agentsDiv.innerHTML = '<span style="color: #888;">No agents registered</span>';
+                    log('No agents found');
+                    return;
+                }
+
+                agentsDiv.innerHTML = currentAgents.map(a => `
+                    <div class="agent-card ${a.status}">
+                        <strong>${a.name}</strong> <span style="color: #888; font-size: 11px;">(${a.id.substring(0, 8)}...)</span>
+                        <div style="margin-top: 5px; font-size: 12px;">
+                            Status: <strong style="color: ${a.status === 'running' ? '#00ff00' : a.status === 'blocked' ? '#ff0000' : '#888'}">${a.status.toUpperCase()}</strong>
+                        </div>
+                        ${a.last_action ? `<div style="color: #00aaff; font-size: 11px;">Action: ${a.last_action} (score: ${a.last_score})</div>` : ''}
+                        <div style="margin-top: 8px;">
+                            <button class="btn" style="padding: 5px 10px; font-size: 11px;" onclick="updateAgent('${a.id}')">Update</button>
+                            <button class="btn btn-danger" style="padding: 5px 10px; font-size: 11px;" onclick="unregisterAgent('${a.id}')">Unregister</button>
+                        </div>
+                    </div>
+                `).join('');
+                
+                log(`Loaded ${currentAgents.length} agents`, 'success');
+            } catch (e) {
+                log(`Error listing agents: ${e}`, 'error');
+            }
+        }
+
+        async function updateAgent(agentId) {
+            const action = prompt('Action:') || 'idle';
+            const score = parseInt(prompt('Score (0-100):') || '50');
+
+            try {
+                await invoke('agent_update', {
+                    agent_id: agentId,
+                    action: action,
+                    score: score
+                });
+                log(`✅ Updated agent ${agentId.substring(0, 8)}...`, 'success');
+                await listAgents();
+            } catch (e) {
+                log(`Error updating agent: ${e}`, 'error');
+            }
+        }
+
+        async function unregisterAgent(agentId) {
+            if (!confirm('Unregister this agent?')) return;
+            
+            try {
+                await invoke('agent_unregister', { agent_id: agentId });
+                log(`✅ Unregistered agent ${agentId.substring(0, 8)}...`, 'success');
+                await listAgents();
+            } catch (e) {
+                log(`Error unregistering agent: ${e}`, 'error');
+            }
+        }
+
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', () => {
+            log('Phase 5 Tester initialized', 'success');
+            log('Click "List Rules" or "Register Agent" to begin', 'info');
+        });
+    </script>
+</body>
+</html>

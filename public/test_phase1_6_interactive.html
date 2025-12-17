@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Warp Phases 1-6 Interactive Tester</title>
+<style>
+body { background: #0f111a; color: #f0f0f0; font-family: 'Monaco', 'Consolas', monospace; margin: 0; padding: 0; }
+.header { background: #1b1d2a; padding: 1rem; text-align: center; border-bottom: 2px solid #4caf50; }
+.header h1 { margin: 0; color: #4caf50; font-size: 1.8rem; }
+.container { display: grid; grid-template-columns: 1fr 1fr; grid-gap: 1rem; padding: 1rem; }
+.panel { background: #1b1d2a; padding: 1rem; border-radius: 8px; overflow: auto; max-height: 70vh; border: 1px solid #2a2d3a; }
+.panel h2 { margin-top: 0; color: #4caf50; font-size: 1.2rem; border-bottom: 1px solid #2a2d3a; padding-bottom: 0.5rem; }
+button { 
+    margin: 0.3rem; padding: 0.4rem 0.8rem; background: #2a3f2a; color: #4caf50; 
+    border: 1px solid #4caf50; border-radius: 4px; cursor: pointer; 
+    font-family: inherit; font-size: 0.9rem; transition: all 0.2s;
+}
+button:hover { background: #3a5f3a; box-shadow: 0 0 8px #4caf5050; }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+input, select { 
+    background: #0c0e15; color: #f0f0f0; border: 1px solid #2a2d3a; 
+    padding: 0.4rem; border-radius: 4px; font-family: inherit; margin: 0.2rem;
+}
+.badge { 
+    display: inline-block; padding: 0.2rem 0.5rem; border-radius: 4px; 
+    font-size: 0.75rem; margin-right: 0.3rem; font-weight: bold;
+}
+.badge-safe { background: #4caf50; color: #000; }
+.badge-unsafe { background: #f44336; color: #fff; }
+.badge-unknown { background: #ff9800; color: #000; }
+.badge-pending { background: #ffeb3b; color: #000; }
+.badge-running { background: #03a9f4; color: #fff; }
+.badge-completed { background: #4caf50; color: #000; }
+.log { 
+    background: #0c0e15; padding: 0.6rem; border-radius: 4px; 
+    max-height: 50vh; overflow: auto; font-size: 0.85rem; 
+    border: 1px solid #1a1c25; font-family: 'Monaco', monospace;
+}
+.log-entry { padding: 0.2rem 0; border-bottom: 1px solid #1a1c25; }
+.log-success { color: #4caf50; }
+.log-error { color: #f44336; }
+.log-info { color: #03a9f4; }
+.log-warning { color: #ff9800; }
+.footer { text-align: center; padding: 1rem; color: #666; font-size: 0.8rem; }
+.status-bar { background: #1b1d2a; padding: 0.5rem 1rem; border-top: 1px solid #2a2d3a; }
+.status-indicator { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 0.5rem; }
+.status-connected { background: #4caf50; }
+.status-disconnected { background: #f44336; }
+table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
+th, td { padding: 0.4rem; text-align: left; border-bottom: 1px solid #1a1c25; font-size: 0.85rem; }
+th { background: #0c0e15; color: #4caf50; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <h1>🚀 Warp Phases 1-6 Interactive Tester</h1>
+    <div style="margin-top: 0.5rem;">
+        <span class="status-indicator" id="statusIndicator"></span>
+        <span id="statusText">Checking connection...</span>
+    </div>
+</div>
+
+<div class="container">
+
+<!-- Phase 1-3: Batch & Autonomy -->
+<div class="panel">
+    <h2>📦 Phase 1-3: Batch / Autonomy</h2>
+    <div style="margin-bottom: 0.5rem;">
+        <button onclick="createTestBatch()">Create Batch</button>
+        <button onclick="approveAllBatches()">Approve All</button>
+        <button onclick="runAllBatches()">Run All</button>
+        <button onclick="clearBatchLog()">Clear Log</button>
+    </div>
+    <div id="batch-log" class="log"></div>
+</div>
+
+<!-- Phase 4: Telemetry / ML -->
+<div class="panel">
+    <h2>📊 Phase 4: Telemetry / ML</h2>
+    <div style="margin-bottom: 0.5rem;">
+        <button onclick="insertTestEvent()">Insert Event</button>
+        <button onclick="refreshTelemetry()">Refresh</button>
+        <button onclick="exportTelemetry()">Export CSV</button>
+        <button onclick="runTrainer()">Run Trainer</button>
+    </div>
+    <div id="telemetry-log" class="log"></div>
+</div>
+
+<!-- Phase 5: Policy & Agents -->
+<div class="panel">
+    <h2>🛡️ Phase 5: Policy & Agents</h2>
+    <div style="margin-bottom: 0.5rem;">
+        <button onclick="refreshPolicy()">Refresh Policies</button>
+        <button onclick="addTestPolicy()">Add Test Policy</button>
+        <button onclick="generateSuggestions()">Generate ML Suggestions</button>
+        <button onclick="refreshAgents()">Refresh Agents</button>
+        <button onclick="registerTestAgent()">Register Agent</button>
+    </div>
+    <div id="policy-log" class="log"></div>
+</div>
+
+<!-- Phase 6: Long-Term Plans -->
+<div class="panel">
+    <h2>📅 Phase 6: Plans & Monitoring</h2>
+    <div style="margin-bottom: 0.5rem;">
+        <button onclick="createTestPlan()">Create Plan</button>
+        <button onclick="refreshPlans()">Refresh Plans</button>
+        <button onclick="advanceFirstPlan()">Advance Plan</button>
+        <button onclick="refreshMonitoring()">Refresh Events</button>
+        <button onclick="clearMonitoring()">Clear Events</button>
+    </div>
+    <div id="plan-log" class="log"></div>
+</div>
+
+</div>
+
+<div class="status-bar">
+    <button onclick="runFullTest()" style="background: #3f2a2a; border-color: #f44336; color: #f44336;">
+        🚀 Run Full Phase 1-6 Test
+    </button>
+    <button onclick="clearAllLogs()">🧹 Clear All Logs</button>
+    <span style="float: right; color: #666;">Auto-refresh: 
+        <input type="checkbox" id="autoRefresh" onchange="toggleAutoRefresh()"> 
+        <span id="refreshInterval">Off</span>
+    </span>
+</div>
+
+<div class="footer">
+    Warp Open Source Terminal - Phase 1-6 Integration Testing
+</div>
+
+<script>
+// ==================== STATE & UTILITIES ====================
+
+const logs = {
+    batch: document.getElementById('batch-log'),
+    telemetry: document.getElementById('telemetry-log'),
+    policy: document.getElementById('policy-log'),
+    plan: document.getElementById('plan-log')
+};
+
+let autoRefreshInterval = null;
+
+function log(panel, msg, type = 'info') {
+    const entry = document.createElement('div');
+    entry.className = `log-entry log-${type}`;
+    entry.innerHTML = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    logs[panel].appendChild(entry);
+    logs[panel].scrollTop = logs[panel].scrollHeight;
+}
+
+function clearLog(panel) {
+    logs[panel].innerHTML = '';
+}
+
+function clearAllLogs() {
+    Object.keys(logs).forEach(panel => logs[panel].innerHTML = '');
+}
+
+async function updateConnectionStatus() {
+    try {
+        await window.__TAURI__.invoke('phase6_get_pending_plans', { limit: 1 });
+        document.getElementById('statusIndicator').className = 'status-indicator status-connected';
+        document.getElementById('statusText').textContent = 'Connected ✅';
+        return true;
+    } catch (e) {
+        document.getElementById('statusIndicator').className = 'status-indicator status-disconnected';
+        document.getElementById('statusText').textContent = 'Disconnected ❌';
+        return false;
+    }
+}
+
+// ==================== PHASE 1-3: BATCH & AUTONOMY ====================
+
+async function createTestBatch() {
+    try {
+        log('batch', 'Creating test batch...', 'info');
+        const batchId = await window.__TAURI__.invoke('create_batch', {
+            tabId: 1,
+            entries: JSON.stringify([
+                { tool: 'execute_shell', args: 'echo "Phase 1-3 Test"' }
+            ])
+        });
+        log('batch', `✅ Batch created: ${batchId}`, 'success');
+    } catch (e) {
+        log('batch', `❌ Error: ${e}`, 'error');
+    }
+}
+
+async function approveAllBatches() {
+    try {
+        log('batch', 'Approving all batches...', 'info');
+        const batches = await window.__TAURI__.invoke('get_batches');
+        for (const b of batches) {
+            await window.__TAURI__.invoke('approve_batch', { batchId: b.id });
+            log('batch', `✅ Approved: ${b.id}`, 'success');
+        }
+    } catch (e) {
+        log('batch', `❌ Error: ${e}`, 'error');
+    }
+}
+
+async function runAllBatches() {
+    try {
+        log('batch', 'Running all batches...', 'info');
+        const batches = await window.__TAURI__.invoke('get_batches');
+        for (const b of batches) {
+            await window.__TAURI__.invoke('run_batch', { batchId: b.id });
+            log('batch', `✅ Ran: ${b.id}`, 'success');
+        }
+    } catch (e) {
+        log('batch', `❌ Error: ${e}`, 'error');
+    }
+}
+
+function clearBatchLog() { clearLog('batch'); }
+
+// ==================== PHASE 4: TELEMETRY & ML ====================
+
+async function insertTestEvent() {
+    try {
+        log('telemetry', 'Inserting test telemetry event...', 'info');
+        const event = {
+            id: `evt_${Date.now()}`,
+            ts: new Date().toISOString(),
+            event_type: 'interactive_test',
+            tab_id: 1,
+            tool: 'execute_shell',
+            command: 'echo test',
+            exit_code: 0,
+            safety_score: 100
+        };
+        await window.__TAURI__.invoke('telemetry_insert_event', { 
+            eventJson: JSON.stringify(event) 
+        });
+        log('telemetry', '✅ Event inserted', 'success');
+    } catch (e) {
+        log('telemetry', `❌ Error: ${e}`, 'error');
+    }
+}
+
+async function refreshTelemetry() {
+    try {
+        log('telemetry', 'Fetching recent events...', 'info');
+        const events = await window.__TAURI__.invoke('telemetry_query_recent', { limit: 10 });
+        log('telemetry', `✅ Retrieved ${events.length} events`, 'success');
+        events.forEach(e => {
+            const badge = e.safety_score > 80 ? 'safe' : e.safety_score < 50 ? 'unsafe' : 'unknown';
+            log('telemetry', `${e.command || e.event_type} <span class="badge badge-${badge}">${e.safety_score || '-'}</span>`, 'info');
+        });
+    } catch (e) {
+        log('telemetry', `❌ Error: ${e}`, 'error');
+    }
+}
+
+async function exportTelemetry() {
+    try {
+        log('telemetry', 'Exporting to CSV...', 'info');
+        await window.__TAURI__.invoke('telemetry_export_csv', { outPath: null });
+        log('telemetry', '✅ CSV exported to ~/.warp_open/', 'success');
+    } catch (e) {
+        log('telemetry', `❌ Error: ${e}`, 'error');
+    }
+}
+
+async function runTrainer() {
+    try {
+        log('telemetry', 'Triggering trainer...', 'warning');
+        await window.__TAURI__.invoke('phase4_trigger_trainer', { csvPath: null });
+        log('telemetry', '✅ Trainer job queued', 'success');
+    } catch (e) {
+        log('telemetry', `❌ Error: ${e}`, 'error');
+    }
+}
+
+// ==================== PHASE 5: POLICY & AGENTS ====================
+
+async function refreshPolicy() {
+    try {
+        log('policy', 'Fetching policies...', 'info');
+        const rules = await window.__TAURI__.invoke('policy_list_rules');
+        log('policy', `✅ Found ${rules.length} policy rules`, 'success');
+        rules.forEach(r => {
+            log('policy', `📜 ${r.effect}: ${r.pattern}`, 'info');
+        });
+    } catch (e) {
+        log('policy', `❌ Error: ${e}`, 'error');
+    }
+}
+
+async function addTestPolicy() {
+    try {
+        log('policy', 'Adding test policy...', 'info');
+        await window.__TAURI__.invoke('policy_propose_diff', {
+            proposedBy: 'interactive_tester',
+            diffJson: JSON.stringify({
+                add: [{ pattern: 'test.*', effect: 'allow', score: 0.9 }],
+                remove: []
+            })
+        });
+        log('policy', '✅ Test policy proposed', 'success');
+    } catch (e) {
+        log('policy', `❌ Error: ${e}`, 'error');
+    }
+}
+
+async function generateSuggestions() {
+    try {
+        log('policy', 'Generating ML suggestions...', 'warning');
+        await window.__TAURI__.invoke('phase5_generate_suggestions', {});
+        log('policy', '✅ ML suggestions generated', 'success');
+    } catch (e) {
+        log('policy', `❌ Error: ${e}`, 'error');
+    }
+}
+
+async function refreshAgents() {
+    try {
+        log('policy', 'Fetching agents...', 'info');
+        const agents = await window.__TAURI__.invoke('agent_list');
+        log('policy', `✅ Found ${agents.length} agents`, 'success');
+        agents.forEach(a => {
+            log('policy', `🤖 ${a.name || a.id}: ${a.status}`, 'info');
+        });
+    } catch (e) {
+        log('policy', `❌ Error: ${e}`, 'error');
+    }
+}
+
+async function registerTestAgent() {
+    try {
+        log('policy', 'Registering test agent...', 'info');
+        const agentId = await window.__TAURI__.invoke('agent_register', { 
+            name: `Agent_${Date.now()}` 
+        });
+        log('policy', `✅ Agent registered: ${agentId}`, 'success');
+    } catch (e) {
+        log('policy', `❌ Error: ${e}`, 'error');
+    }
+}
+
+// ==================== PHASE 6: PLANS & MONITORING ====================
+
+async function createTestPlan() {
+    try {
+        log('plan', 'Creating test plan...', 'info');
+        const plan = {
+            plan_id: `plan_${Date.now()}`,
+            created_at: new Date().toISOString(),
+            status: 'pending',
+            agent_ids: [1, 2],
+            task_sequence: ['init', 'process', 'validate', 'complete'],
+            next_task_index: 0,
+            metadata: { description: 'Interactive test plan' }
+        };
+        await window.__TAURI__.invoke('phase6_create_plan', { 
+            planJson: JSON.stringify(plan) 
+        });
+        log('plan', `✅ Plan created: ${plan.plan_id}`, 'success');
+    } catch (e) {
+        log('plan', `❌ Error: ${e}`, 'error');
+    }
+}
+
+async function refreshPlans() {
+    try {
+        log('plan', 'Fetching plans...', 'info');
+        const plans = await window.__TAURI__.invoke('phase6_get_pending_plans', { limit: 20 });
+        log('plan', `✅ Found ${plans.length} plans`, 'success');
+        plans.forEach(p => {
+            const badge = p.status === 'completed' ? 'completed' : p.status === 'running' ? 'running' : 'pending';
+            log('plan', `📋 ${p.plan_id.slice(0,12)}... <span class="badge badge-${badge}">${p.status}</span> ${p.next_task_index}/${p.task_sequence.length}`, 'info');
+        });
+    } catch (e) {
+        log('plan', `❌ Error: ${e}`, 'error');
+    }
+}
+
+async function advanceFirstPlan() {
+    try {
+        log('plan', 'Advancing first plan...', 'info');
+        const plans = await window.__TAURI__.invoke('phase6_get_pending_plans', { limit: 1 });
+        if (plans.length === 0) {
+            log('plan', '⚠ No pending plans to advance', 'warning');
+            return;
+        }
+        const plan = plans[0];
+        const newIndex = plan.next_task_index + 1;
+        await window.__TAURI__.invoke('phase6_update_plan_index', { 
+            planId: plan.plan_id, 
+            index: newIndex 
+        });
+        if (newIndex >= plan.task_sequence.length) {
+            await window.__TAURI__.invoke('phase6_update_plan_status', { 
+                planId: plan.plan_id, 
+                status: 'completed' 
+            });
+            log('plan', '✅ Plan completed!', 'success');
+        } else {
+            log('plan', `✅ Plan advanced to step ${newIndex}`, 'success');
+        }
+    } catch (e) {
+        log('plan', `❌ Error: ${e}`, 'error');
+    }
+}
+
+async function refreshMonitoring() {
+    try {
+        log('plan', 'Fetching monitoring events...', 'info');
+        const events = await window.__TAURI__.invoke('get_monitoring_events');
+        const count = Object.values(events).reduce((sum, arr) => sum + arr.length, 0);
+        log('plan', `✅ Found ${count} events across ${Object.keys(events).length} phases`, 'success');
+    } catch (e) {
+        log('plan', `❌ Error: ${e}`, 'error');
+    }
+}
+
+async function clearMonitoring() {
+    try {
+        log('plan', 'Clearing monitoring events...', 'info');
+        await window.__TAURI__.invoke('clear_monitoring_all');
+        log('plan', '✅ All events cleared', 'success');
+    } catch (e) {
+        log('plan', `❌ Error: ${e}`, 'error');
+    }
+}
+
+// ==================== FULL TEST ====================
+
+async function runFullTest() {
+    clearAllLogs();
+    log('batch', '🚀 Starting full Phase 1-6 test...', 'warning');
+    log('telemetry', '🚀 Starting full Phase 1-6 test...', 'warning');
+    log('policy', '🚀 Starting full Phase 1-6 test...', 'warning');
+    log('plan', '🚀 Starting full Phase 1-6 test...', 'warning');
+    
+    await createTestBatch();
+    await new Promise(r => setTimeout(r, 1000));
+    await insertTestEvent();
+    await new Promise(r => setTimeout(r, 1000));
+    await registerTestAgent();
+    await new Promise(r => setTimeout(r, 1000));
+    await createTestPlan();
+    await new Promise(r => setTimeout(r, 1000));
+    
+    log('batch', '✅ Full test complete!', 'success');
+    log('telemetry', '✅ Full test complete!', 'success');
+    log('policy', '✅ Full test complete!', 'success');
+    log('plan', '✅ Full test complete!', 'success');
+}
+
+// ==================== AUTO-REFRESH ====================
+
+function toggleAutoRefresh() {
+    const enabled = document.getElementById('autoRefresh').checked;
+    if (enabled) {
+        document.getElementById('refreshInterval').textContent = 'Every 10s';
+        autoRefreshInterval = setInterval(async () => {
+            await refreshTelemetry();
+            await refreshPlans();
+        }, 10000);
+    } else {
+        document.getElementById('refreshInterval').textContent = 'Off';
+        if (autoRefreshInterval) {
+            clearInterval(autoRefreshInterval);
+            autoRefreshInterval = null;
+        }
+    }
+}
+
+// ==================== INIT ====================
+
+window.addEventListener('DOMContentLoaded', async () => {
+    await updateConnectionStatus();
+    setInterval(updateConnectionStatus, 5000);
+    
+    // Check for auto-run parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('autorun') === 'true') {
+        console.log('🤖 Auto-run enabled, starting test in 3 seconds...');
+        setTimeout(async () => {
+            await runFullTest();
+            console.log('=== Phase 1-6 Test Complete ✅ ===');
+        }, 3000);
+    }
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,80 @@
+name: Phase 4 Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  phase4-telemetry-trainer:
+    name: Phase 4 Telemetry & Trainer Tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+        
+    - name: Cache cargo registry
+      uses: actions/cache@v3
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+        
+    - name: Cache cargo index
+      uses: actions/cache@v3
+      with:
+        path: ~/.cargo/git
+        key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+        
+    - name: Cache target directory
+      uses: actions/cache@v3
+      with:
+        path: src-tauri/target
+        key: ${{ runner.os }}-target-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Run Telemetry Unit Tests
+      working-directory: src-tauri
+      run: |
+        cargo test --lib telemetry -- --nocapture
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Cache Python dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r phase4_trainer/requirements.txt
+        
+    - name: Generate Sample Telemetry Data
+      run: |
+        mkdir -p testdata
+        python3 phase4_trainer/generate_sample_csv.py --out ./testdata/sample_telemetry.csv --count 100
+        
+    - name: Test Trainer Smoke
+      run: |
+        python3 -m phase4_trainer.train_policy --csv ./testdata/sample_telemetry.csv --out ./policy_model/test_model.pkl
+        
+    - name: Test Predictor
+      run: |
+        python3 -m phase4_trainer.predict --model ./policy_model/test_model.pkl "ls -la"
+        
+    - name: Verify Model File Created
+      run: |
+        test -f ./policy_model/test_model.pkl && echo "✓ Model file exists"

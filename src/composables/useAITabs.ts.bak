@@ -1,0 +1,116 @@
+import { reactive, computed } from 'vue'
+import { invoke } from '@tauri-apps/api/tauri'
+import { listen } from '@tauri-apps/api/event'
+
+export interface Message {
+  id: number
+  role: 'user' | 'ai' | 'system'
+  content: string
+  timestamp: number
+}
+
+export interface AITab {
+  id: number
+  name: string
+  messages: Message[]
+  is_thinking: boolean  // Match Rust field name
+}
+
+interface State {
+  tabs: AITab[]
+  activeTabId: number | null
+}
+
+export const state = reactive<State>({
+  tabs: [],
+  activeTabId: null
+})
+
+// Fetch state from Rust backend
+async function fetchState() {
+  try {
+    const tabs: AITab[] = await invoke('get_conversation_state')
+    state.tabs = tabs
+    
+    // Set active tab if not set
+    if (state.activeTabId === null && tabs.length > 0) {
+      state.activeTabId = tabs[0].id
+    }
+    
+    console.log('[useAITabs] Fetched state from Rust:', tabs.length, 'tabs')
+  } catch (e) {
+    console.error('[useAITabs] Failed to fetch state:', e)
+  }
+}
+
+// Listen for conversation updates from Rust
+export async function setupAIEventListeners() {
+  console.log('[useAITabs] Setting up event listener for conversation_updated')
+  
+  // Fetch initial state from Rust
+  await fetchState()
+  
+  await listen('conversation_updated', async (event: any) => {
+    console.log('[useAITabs] Received conversation_updated event:', event.payload)
+    // Refresh state from Rust
+    await fetchState()
+  })
+  
+  console.log('[useAITabs] Event listener set up successfully')
+}
+
+export const activeTab = computed(() =>
+  state.tabs.find(t => t.id === state.activeTabId) || null
+)
+
+export function setActiveTab(id: number) {
+  if (state.tabs.some(t => t.id === id)) {
+    state.activeTabId = id
+  }
+}
+
+// Send message to Rust backend
+export async function sendMessage(content: string) {
+  const tab = activeTab.value
+  if (!tab || !content.trim()) return
+  
+  try {
+    await invoke('send_user_message', {
+      tabId: tab.id,
+      content: content.trim()
+    })
+    console.log('[useAITabs] Message sent to Rust')
+  } catch (error) {
+    console.error('[useAITabs] Failed to send message:', error)
+  }
+}
+
+export function useAITabs() {
+  return {
+    state,
+    activeTab,
+    setActiveTab,
+    sendMessage
+  }
+}
+
+export function getActiveTab() {
+  return activeTab.value
+}
+
+// Stub functions for UI features (not implemented in refactor yet)
+export function createTab(name?: string) {
+  console.warn('[useAITabs] createTab not yet implemented in Rust backend')
+}
+
+export function removeTab(id: number) {
+  console.warn('[useAITabs] removeTab not yet implemented in Rust backend')
+}
+
+export function renameTab(id: number, newName: string) {
+  console.warn('[useAITabs] renameTab not yet implemented in Rust backend')
+}
+
+export function reorderTabs(newOrder: AITab[]) {
+  console.warn('[useAITabs] reorderTabs not yet implemented in Rust backend')
+}

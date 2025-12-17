@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Phase 6 Interactive Tester</title>
+<style>
+body { background: #000; color: #0f0; font-family: 'Courier New', monospace; padding: 20px; }
+h1, h2 { color: #0f0; border-bottom: 2px solid #0f0; }
+.panel { border: 1px solid #0f0; padding: 15px; margin: 10px 0; background: #001100; }
+button { background: #006600; color: #0f0; border: 1px solid #0f0; padding: 8px 16px; cursor: pointer; margin: 5px; }
+button:hover { background: #009900; }
+input, select { background: #001100; color: #0f0; border: 1px solid #0f0; padding: 5px; margin: 5px; }
+table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+th, td { border: 1px solid #0f0; padding: 8px; text-align: left; }
+th { background: #003300; }
+.success { color: #0f0; }
+.failure { color: #f00; }
+.pending { color: #ff0; }
+.running { color: #0ff; }
+pre { background: #001100; border: 1px solid #0f0; padding: 10px; overflow-x: auto; }
+.alert { background: #330000; border: 1px solid #f00; color: #f00; padding: 10px; margin: 10px 0; }
+.countdown { font-weight: bold; font-size: 1.2em; }
+</style>
+</head>
+<body>
+
+<h1>🚀 Phase 6: Long-Term Planning & Live Monitoring</h1>
+<div class="panel">
+  <p>Test the Phase 6 multi-day plan execution and live monitoring system</p>
+  <p>Status: <span id="status">Not connected</span></p>
+</div>
+
+<h2>📋 Plan Management</h2>
+<div class="panel">
+  <button onclick="loadPlans()">Load Plans</button>
+  <button onclick="createTestPlan()">Create Test Plan</button>
+  <button onclick="clearPlans()">Clear All Plans</button>
+  <div id="planList"></div>
+</div>
+
+<h2>🔴 Live Monitoring</h2>
+<div class="panel">
+  <button onclick="loadEvents()">Load Events</button>
+  <button onclick="clearEvents()">Clear Events</button>
+  <button onclick="testAlert()">Test Alert</button>
+  <div id="eventList"></div>
+</div>
+
+<h2>📊 Console Log</h2>
+<pre id="log"></pre>
+
+<script>
+const log = document.getElementById('log');
+const status = document.getElementById('status');
+
+function appendLog(msg) {
+  const timestamp = new Date().toLocaleTimeString();
+  log.textContent += `[${timestamp}] ${msg}\n`;
+  log.scrollTop = log.scrollHeight;
+}
+
+async function checkConnection() {
+  try {
+    await window.__TAURI__.invoke('phase6_get_pending_plans', { limit: 1 });
+    status.textContent = 'Connected ✅';
+    status.className = 'success';
+    appendLog('✅ Connected to Tauri backend');
+  } catch (e) {
+    status.textContent = 'Disconnected ❌';
+    status.className = 'failure';
+    appendLog('❌ Failed to connect: ' + e);
+  }
+}
+
+async function loadPlans() {
+  try {
+    appendLog('Loading plans...');
+    const plans = await window.__TAURI__.invoke('phase6_get_pending_plans', { limit: 50 });
+    displayPlans(plans);
+    appendLog(`✅ Loaded ${plans.length} plans`);
+  } catch (e) {
+    appendLog('❌ Failed to load plans: ' + e);
+  }
+}
+
+function displayPlans(plans) {
+  const container = document.getElementById('planList');
+  if (plans.length === 0) {
+    container.innerHTML = '<p>No plans found</p>';
+    return;
+  }
+  
+  let html = '<table><thead><tr><th>Plan ID</th><th>Status</th><th>Progress</th><th>Actions</th></tr></thead><tbody>';
+  plans.forEach(p => {
+    const progress = `${p.next_task_index}/${p.task_sequence.length}`;
+    const statusClass = p.status === 'completed' ? 'success' : p.status === 'failed' ? 'failure' : p.status === 'running' ? 'running' : 'pending';
+    html += `<tr>
+      <td>${p.plan_id.slice(0, 12)}...</td>
+      <td class="${statusClass}">${p.status}</td>
+      <td>${progress}</td>
+      <td>
+        <button onclick="advancePlan('${p.plan_id}')">Advance</button>
+        <button onclick="deletePlan('${p.plan_id}')">Delete</button>
+      </td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+async function createTestPlan() {
+  try {
+    appendLog('Creating test plan...');
+    const plan = {
+      plan_id: `plan_${Date.now()}`,
+      created_at: new Date().toISOString(),
+      status: 'pending',
+      agent_ids: [1, 2, 3],
+      task_sequence: ['init', 'process', 'validate', 'finalize'],
+      next_task_index: 0,
+      metadata: { description: 'Test multi-day workflow' }
+    };
+    
+    await window.__TAURI__.invoke('phase6_create_plan', { planJson: JSON.stringify(plan) });
+    appendLog('✅ Plan created: ' + plan.plan_id);
+    await loadPlans();
+  } catch (e) {
+    appendLog('❌ Failed to create plan: ' + e);
+  }
+}
+
+async function advancePlan(planId) {
+  try {
+    appendLog(`Advancing plan ${planId}...`);
+    const plan = await window.__TAURI__.invoke('phase6_get_plan', { planId });
+    const newIndex = plan.next_task_index + 1;
+    
+    await window.__TAURI__.invoke('phase6_update_plan_index', { planId, index: newIndex });
+    
+    if (newIndex >= plan.task_sequence.length) {
+      await window.__TAURI__.invoke('phase6_update_plan_status', { planId, status: 'completed' });
+      appendLog(`✅ Plan ${planId} completed!`);
+    } else {
+      await window.__TAURI__.invoke('phase6_update_plan_status', { planId, status: 'running' });
+      appendLog(`✅ Plan ${planId} advanced to step ${newIndex}`);
+    }
+    
+    await loadPlans();
+  } catch (e) {
+    appendLog('❌ Failed to advance plan: ' + e);
+  }
+}
+
+async function deletePlan(planId) {
+  try {
+    appendLog(`Deleting plan ${planId}...`);
+    await window.__TAURI__.invoke('phase6_delete_plan', { planId });
+    appendLog(`✅ Plan ${planId} deleted`);
+    await loadPlans();
+  } catch (e) {
+    appendLog('❌ Failed to delete plan: ' + e);
+  }
+}
+
+async function clearPlans() {
+  try {
+    appendLog('Clearing all plans...');
+    const plans = await window.__TAURI__.invoke('phase6_get_pending_plans', { limit: 100 });
+    for (const plan of plans) {
+      await window.__TAURI__.invoke('phase6_delete_plan', { planId: plan.plan_id });
+    }
+    appendLog(`✅ Cleared ${plans.length} plans`);
+    await loadPlans();
+  } catch (e) {
+    appendLog('❌ Failed to clear plans: ' + e);
+  }
+}
+
+async function loadEvents() {
+  try {
+    appendLog('Loading monitoring events...');
+    const events = await window.__TAURI__.invoke('get_monitoring_events');
+    displayEvents(events);
+    const count = Object.values(events).reduce((sum, arr) => sum + arr.length, 0);
+    appendLog(`✅ Loaded ${count} events across ${Object.keys(events).length} phases`);
+  } catch (e) {
+    appendLog('❌ Failed to load events: ' + e);
+  }
+}
+
+function displayEvents(events) {
+  const container = document.getElementById('eventList');
+  if (Object.keys(events).length === 0) {
+    container.innerHTML = '<p>No events found</p>';
+    return;
+  }
+  
+  let html = '';
+  for (const [phase, phaseEvents] of Object.entries(events)) {
+    html += `<h3>${phase.toUpperCase()} (${phaseEvents.length} events)</h3>`;
+    html += '<table><thead><tr><th>Time</th><th>Message</th><th>Status</th></tr></thead><tbody>';
+    phaseEvents.forEach(e => {
+      const time = new Date(e.timestamp).toLocaleTimeString();
+      const statusClass = e.status === 'success' ? 'success' : e.status === 'failure' ? 'failure' : 'running';
+      html += `<tr>
+        <td>${time}</td>
+        <td>${e.message}</td>
+        <td class="${statusClass}">${e.status}</td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+  }
+  container.innerHTML = html;
+}
+
+async function clearEvents() {
+  try {
+    appendLog('Clearing all events...');
+    await window.__TAURI__.invoke('clear_monitoring_all');
+    appendLog('✅ Events cleared');
+    await loadEvents();
+  } catch (e) {
+    appendLog('❌ Failed to clear events: ' + e);
+  }
+}
+
+function testAlert() {
+  const alertDiv = document.createElement('div');
+  alertDiv.className = 'alert';
+  alertDiv.innerHTML = `
+    <strong>⚠️ TEST ALERT</strong>
+    <p>This is a test alert with countdown: <span class="countdown" id="testCountdown">5.0s</span></p>
+  `;
+  document.body.insertBefore(alertDiv, document.body.firstChild);
+  
+  let countdown = 5.0;
+  const interval = setInterval(() => {
+    countdown -= 0.1;
+    const countdownEl = document.getElementById('testCountdown');
+    if (countdownEl) {
+      countdownEl.textContent = countdown.toFixed(1) + 's';
+      if (countdown < 2) countdownEl.style.color = '#f00';
+      else if (countdown < 4) countdownEl.style.color = '#ff0';
+    }
+    if (countdown <= 0) {
+      clearInterval(interval);
+      alertDiv.remove();
+      appendLog('✅ Test alert expired');
+    }
+  }, 100);
+  
+  appendLog('⚠️ Test alert triggered');
+}
+
+// Auto-connect on load
+window.addEventListener('DOMContentLoaded', () => {
+  checkConnection();
+  loadPlans();
+  loadEvents();
+  
+  // Auto-refresh every 5 seconds
+  setInterval(() => {
+    loadPlans();
+    loadEvents();
+  }, 5000);
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Warp Automation Dashboard - Phase 1-6</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  
+  body {
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    background: #0a0a0a;
+    color: #0f0;
+    padding: 20px;
+  }
+  
+  header {
+    border-bottom: 2px solid #0f0;
+    padding-bottom: 15px;
+    margin-bottom: 20px;
+  }
+  
+  h1 {
+    font-size: 24px;
+    color: #0f0;
+    text-shadow: 0 0 10px #0f0;
+  }
+  
+  .status-bar {
+    display: flex;
+    gap: 20px;
+    margin-top: 10px;
+    font-size: 14px;
+  }
+  
+  .status-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  
+  .status-dot.active { background: #0f0; box-shadow: 0 0 10px #0f0; }
+  .status-dot.inactive { background: #333; }
+  
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  
+  .controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  
+  button {
+    background: #1a1a1a;
+    color: #0f0;
+    border: 1px solid #0f0;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+    transition: all 0.2s;
+  }
+  
+  button:hover {
+    background: #0f0;
+    color: #000;
+    box-shadow: 0 0 10px #0f0;
+  }
+  
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+  
+  @media (max-width: 1200px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+  
+  .panel {
+    background: #111;
+    border: 1px solid #0f0;
+    padding: 15px;
+    box-shadow: 0 0 20px rgba(0, 255, 0, 0.1);
+  }
+  
+  .panel h2 {
+    font-size: 18px;
+    margin-bottom: 10px;
+    color: #0ff;
+    text-transform: uppercase;
+  }
+  
+  #automation_log, #alert_log {
+    height: 300px;
+    overflow-y: auto;
+    background: #000;
+    padding: 10px;
+    font-size: 12px;
+    line-height: 1.6;
+    border: 1px solid #222;
+  }
+  
+  #automation_log::-webkit-scrollbar, #alert_log::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  #automation_log::-webkit-scrollbar-track, #alert_log::-webkit-scrollbar-track {
+    background: #000;
+  }
+  
+  #automation_log::-webkit-scrollbar-thumb, #alert_log::-webkit-scrollbar-thumb {
+    background: #0f0;
+  }
+  
+  .log-entry {
+    margin-bottom: 5px;
+    padding: 3px 0;
+  }
+  
+  .log-entry .timestamp {
+    color: #666;
+    margin-right: 8px;
+  }
+  
+  .log-entry.auto-approved { color: #0f0; }
+  .log-entry.manual-review { color: #ff0; }
+  .log-entry.retried { color: #0ff; }
+  .log-entry.rolled-back { color: #f90; }
+  .log-entry.agent-assigned { color: #90f; }
+  .log-entry.alert-high { color: #f00; font-weight: bold; }
+  .log-entry.alert-critical { 
+    color: #f00; 
+    font-weight: bold; 
+    animation: blink 1s infinite; 
+  }
+  
+  @keyframes blink {
+    0%, 50%, 100% { opacity: 1; }
+    25%, 75% { opacity: 0.5; }
+  }
+  
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 10px;
+  }
+  
+  .stat-box {
+    background: #000;
+    padding: 10px;
+    text-align: center;
+    border: 1px solid #222;
+  }
+  
+  .stat-value {
+    font-size: 32px;
+    font-weight: bold;
+    color: #0f0;
+  }
+  
+  .stat-label {
+    font-size: 12px;
+    color: #666;
+    margin-top: 5px;
+    text-transform: uppercase;
+  }
+  
+  .config-section {
+    margin-top: 15px;
+  }
+  
+  .config-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #222;
+  }
+  
+  .config-label {
+    font-size: 14px;
+  }
+  
+  input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+  }
+  
+  input[type="number"] {
+    width: 80px;
+    background: #000;
+    color: #0f0;
+    border: 1px solid #0f0;
+    padding: 4px 8px;
+    font-family: inherit;
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1>⚡ WARP AUTOMATION DASHBOARD</h1>
+    <div class="status-bar">
+      <div class="status-item">
+        <div class="status-dot" id="status-scheduler"></div>
+        <span>Scheduler</span>
+      </div>
+      <div class="status-item">
+        <div class="status-dot" id="status-monitor"></div>
+        <span>Monitor</span>
+      </div>
+      <div class="status-item">
+        <span id="uptime">Uptime: 0s</span>
+      </div>
+      <div class="status-item">
+        <span id="timestamp">--:--:--</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="controls">
+    <button id="btn-start" onclick="startAutomation()">Start Automation</button>
+    <button id="btn-stop" onclick="stopAutomation()" disabled>Stop Automation</button>
+    <button onclick="clearLogs()">Clear Logs</button>
+    <button onclick="exportLogs()">Export Logs</button>
+    <button onclick="window.location.reload()">Refresh</button>
+  </div>
+
+  <div class="grid">
+    <!-- Automation Log Panel -->
+    <div class="panel">
+      <h2>🤖 Automation Events</h2>
+      <div id="automation_log"></div>
+    </div>
+
+    <!-- Alert Panel -->
+    <div class="panel">
+      <h2>⚠️ Real-Time Alerts</h2>
+      <div id="alert_log"></div>
+    </div>
+
+    <!-- Statistics Panel -->
+    <div class="panel">
+      <h2>📊 Statistics</h2>
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="stat-value" id="stat-approved">0</div>
+          <div class="stat-label">Auto-Approved</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value" id="stat-retried">0</div>
+          <div class="stat-label">Retried</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value" id="stat-assigned">0</div>
+          <div class="stat-label">Agents Assigned</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value" id="stat-rollbacks">0</div>
+          <div class="stat-label">Rollbacks</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value" id="stat-alerts">0</div>
+          <div class="stat-label">Alerts</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value" id="stat-events">0</div>
+          <div class="stat-label">Total Events</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Configuration Panel -->
+    <div class="panel">
+      <h2>⚙️ Configuration</h2>
+      <div class="config-section">
+        <div class="config-item">
+          <span class="config-label">Auto-Approval Enabled</span>
+          <input type="checkbox" id="cfg-auto-approval" checked>
+        </div>
+        <div class="config-item">
+          <span class="config-label">Safety Threshold</span>
+          <input type="number" id="cfg-threshold" value="0.8" step="0.1" min="0" max="1">
+        </div>
+        <div class="config-item">
+          <span class="config-label">Dynamic Assignment</span>
+          <input type="checkbox" id="cfg-dynamic-assignment" checked>
+        </div>
+        <div class="config-item">
+          <span class="config-label">Auto-Retry Enabled</span>
+          <input type="checkbox" id="cfg-auto-retry" checked>
+        </div>
+        <div class="config-item">
+          <span class="config-label">Max Retry Count</span>
+          <input type="number" id="cfg-max-retries" value="1" min="0" max="5">
+        </div>
+        <div class="config-item">
+          <span class="config-label">Rollback Enabled</span>
+          <input type="checkbox" id="cfg-rollback" checked>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // State
+    let automationRunning = false;
+    let startTime = null;
+    let stats = {
+      approved: 0,
+      retried: 0,
+      assigned: 0,
+      rollbacks: 0,
+      alerts: 0,
+      events: 0
+    };
+
+    // Initialize
+    updateTimestamp();
+    setInterval(updateTimestamp, 1000);
+
+    function updateTimestamp() {
+      const now = new Date();
+      document.getElementById('timestamp').textContent = now.toLocaleTimeString();
+      
+      if (automationRunning && startTime) {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        document.getElementById('uptime').textContent = `Uptime: ${elapsed}s`;
+      }
+    }
+
+    function log(message, cssClass = '') {
+      const logDiv = document.getElementById('automation_log');
+      const entry = document.createElement('div');
+      entry.className = 'log-entry ' + cssClass;
+      
+      const timestamp = new Date().toLocaleTimeString();
+      entry.innerHTML = `<span class="timestamp">[${timestamp}]</span>${message}`;
+      
+      logDiv.insertBefore(entry, logDiv.firstChild);
+      
+      // Limit log size
+      while (logDiv.children.length > 100) {
+        logDiv.removeChild(logDiv.lastChild);
+      }
+      
+      stats.events++;
+      updateStats();
+    }
+
+    function logAlert(message, severity = 'medium') {
+      const alertDiv = document.getElementById('alert_log');
+      const entry = document.createElement('div');
+      entry.className = `log-entry alert-${severity}`;
+      
+      const timestamp = new Date().toLocaleTimeString();
+      entry.innerHTML = `<span class="timestamp">[${timestamp}]</span>${message}`;
+      
+      alertDiv.insertBefore(entry, alertDiv.firstChild);
+      
+      while (alertDiv.children.length > 50) {
+        alertDiv.removeChild(alertDiv.lastChild);
+      }
+      
+      stats.alerts++;
+      updateStats();
+    }
+
+    function updateStats() {
+      document.getElementById('stat-approved').textContent = stats.approved;
+      document.getElementById('stat-retried').textContent = stats.retried;
+      document.getElementById('stat-assigned').textContent = stats.assigned;
+      document.getElementById('stat-rollbacks').textContent = stats.rollbacks;
+      document.getElementById('stat-alerts').textContent = stats.alerts;
+      document.getElementById('stat-events').textContent = stats.events;
+    }
+
+    function startAutomation() {
+      if (automationRunning) return;
+      
+      automationRunning = true;
+      startTime = Date.now();
+      
+      document.getElementById('btn-start').disabled = true;
+      document.getElementById('btn-stop').disabled = false;
+      document.getElementById('status-scheduler').classList.add('active');
+      document.getElementById('status-monitor').classList.add('active');
+      
+      log('✅ Automation started', 'auto-approved');
+      
+      // If Tauri is available, start automation
+      if (window.__TAURI__) {
+        window.__TAURI__.tauri.invoke('start_automation').catch(err => {
+          log(`⚠️ Failed to start: ${err}`, 'alert-high');
+        });
+      } else {
+        // Standalone mode - simulate events
+        log('ℹ️ Running in standalone simulation mode');
+        simulateEvents();
+      }
+    }
+
+    function stopAutomation() {
+      if (!automationRunning) return;
+      
+      automationRunning = false;
+      
+      document.getElementById('btn-start').disabled = false;
+      document.getElementById('btn-stop').disabled = true;
+      document.getElementById('status-scheduler').classList.remove('active');
+      document.getElementById('status-monitor').classList.remove('active');
+      
+      log('🛑 Automation stopped');
+      
+      if (window.__TAURI__) {
+        window.__TAURI__.tauri.invoke('stop_automation');
+      }
+    }
+
+    function clearLogs() {
+      document.getElementById('automation_log').innerHTML = '';
+      document.getElementById('alert_log').innerHTML = '';
+      stats = { approved: 0, retried: 0, assigned: 0, rollbacks: 0, alerts: 0, events: 0 };
+      updateStats();
+      log('🗑️ Logs cleared');
+    }
+
+    function exportLogs() {
+      const autoLog = document.getElementById('automation_log').innerText;
+      const alertLog = document.getElementById('alert_log').innerText;
+      
+      const content = `WARP AUTOMATION LOGS\n${'='.repeat(60)}\n\nAutomation Events:\n${autoLog}\n\nAlerts:\n${alertLog}`;
+      
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `warp_automation_log_${Date.now()}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      log('💾 Logs exported');
+    }
+
+    // Tauri event listeners
+    if (window.__TAURI__) {
+      const { listen } = window.__TAURI__.event;
+      
+      listen('auto_approved', e => {
+        log(`✅ AUTO-APPROVED: ${e.payload.id || e.payload}`, 'auto-approved');
+        stats.approved++;
+        updateStats();
+      });
+      
+      listen('manual_review_required', e => {
+        log(`⚠️ REVIEW REQUIRED: ${e.payload.id || e.payload}`, 'manual-review');
+      });
+      
+      listen('step_retried', e => {
+        log(`🔄 STEP RETRIED: ${e.payload.id || e.payload}`, 'retried');
+        stats.retried++;
+        updateStats();
+      });
+      
+      listen('step_rolled_back', e => {
+        log(`↩️ STEP ROLLED BACK: ${e.payload.id || e.payload}`, 'rolled-back');
+        stats.rollbacks++;
+        updateStats();
+      });
+      
+      listen('agent_assigned', e => {
+        log(`👤 AGENT ASSIGNED: ${e.payload}`, 'agent-assigned');
+        stats.assigned++;
+        updateStats();
+      });
+      
+      listen('warp:alert', e => {
+        const alert = e.payload || e.detail;
+        logAlert(alert.message || alert, alert.severity || 'medium');
+      });
+    }
+
+    // Standalone simulation
+    function simulateEvents() {
+      if (!automationRunning) return;
+      
+      const events = [
+        { msg: 'Plan plan_001 auto-approved (score: 0.95)', class: 'auto-approved', stat: 'approved' },
+        { msg: 'Agent A1 assigned to plan plan_002', class: 'agent-assigned', stat: 'assigned' },
+        { msg: 'Step retried for plan plan_003', class: 'retried', stat: 'retried' },
+        { msg: 'Manual review required for plan plan_004 (score: 0.65)', class: 'manual-review' },
+      ];
+      
+      const event = events[Math.floor(Math.random() * events.length)];
+      log(event.msg, event.class);
+      if (event.stat) stats[event.stat]++;
+      
+      // Random alerts
+      if (Math.random() < 0.1) {
+        logAlert('Plan stalled for 2 minutes', 'high');
+      }
+      
+      updateStats();
+      
+      setTimeout(simulateEvents, 2000 + Math.random() * 3000);
+    }
+
+    // Initial log
+    log('🚀 Dashboard ready');
+  </script>
+</body>
+</html>

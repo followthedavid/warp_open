@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Phase 1-3 Interactive Test</title>
+  <style>
+    body { font-family: monospace; background: #1e1e1e; color: #d4d4d4; padding: 20px; }
+    button { margin: 5px; padding: 10px 15px; background: #0078d4; color: white; border: none; cursor: pointer; border-radius: 4px; }
+    button:hover { background: #005a9e; }
+    pre { background: #2d2d2d; padding: 10px; border-radius: 4px; max-height: 500px; overflow-y: auto; }
+    .success { color: #4ec9b0; }
+    .error { color: #f48771; }
+    .phase { color: #569cd6; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>Phase 1–3 Interactive Test</h1>
+  <button id="run-test">▶ Run Full Test</button>
+  <button id="clear-log">🗑️ Clear Log</button>
+  <pre id="log"></pre>
+
+  <script type="module">
+    const logEl = document.getElementById("log");
+
+    function log(msg, type = '') {
+      const timestamp = new Date().toLocaleTimeString();
+      const className = type ? ` class="${type}"` : '';
+      logEl.innerHTML += `<span${className}>[${timestamp}] ${msg}</span>\n`;
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    document.getElementById("clear-log").addEventListener("click", () => {
+      logEl.innerHTML = '';
+    });
+
+    async function runPhase1_3Test() {
+      log("=== Starting Phase 1–3 Test ===", "phase");
+
+      try {
+        // Phase 1: Single tool execution
+        log("\n[PHASE 1] Running single tool execution...", "phase");
+        const tabId = 1; // assume first tab
+        
+        const batch1 = await window.__TAURI__.invoke('create_batch', {
+          tabId,
+          entries: [{ tool: 'execute_shell', args: { command: 'echo "Phase1 Test"' } }]
+        });
+        log(`Batch created: ${batch1}`, "success");
+
+        await window.__TAURI__.invoke('approve_batch', { batchId: batch1, autonomyToken: null });
+        log(`Batch approved: ${batch1}`, "success");
+
+        await window.__TAURI__.invoke('run_batch', { batchId: batch1, autonomyToken: null });
+        log(`Batch executed: ${batch1}`, "success");
+        log("✅ Phase 1 COMPLETE\n", "success");
+
+        // Wait a bit for execution
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Phase 2: Batch execution with multiple commands
+        log("[PHASE 2] Creating multi-command batch...", "phase");
+        const batch2 = await window.__TAURI__.invoke('create_batch', {
+          tabId,
+          entries: [
+            { tool: 'execute_shell', args: { command: 'echo "Phase2-1"' } },
+            { tool: 'execute_shell', args: { command: 'echo "Phase2-2"' } }
+          ]
+        });
+        log(`Batch created: ${batch2}`, "success");
+
+        await window.__TAURI__.invoke('approve_batch', { batchId: batch2, autonomyToken: null });
+        log(`Batch approved: ${batch2}`, "success");
+
+        await window.__TAURI__.invoke('run_batch', { batchId: batch2, autonomyToken: null });
+        log(`Batch executed: ${batch2}`, "success");
+        log("✅ Phase 2 COMPLETE\n", "success");
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Phase 3: Auto-batch, auto-approve, dependencies, rollback
+        log("[PHASE 3] Auto-batch creation with multiple tools...", "phase");
+        const batch3 = await window.__TAURI__.invoke('create_batch', {
+          tabId,
+          entries: [
+            { tool: 'execute_shell', args: { command: 'echo "Phase3-A"' } },
+            { tool: 'execute_shell', args: { command: 'echo "Phase3-B"' } }
+          ]
+        });
+        log(`Batch created: ${batch3}`, "success");
+
+        await window.__TAURI__.invoke('approve_batch', { batchId: batch3, autonomyToken: 'token123' });
+        log(`Batch auto-approved with token: ${batch3}`, "success");
+
+        await window.__TAURI__.invoke('run_batch', { batchId: batch3, autonomyToken: 'token123' });
+        log(`Batch auto-executed: ${batch3}`, "success");
+
+        // Rollback test
+        log("[PHASE 3] Testing rollback mechanism...", "phase");
+        try {
+          await window.__TAURI__.invoke('rollback_batch', { batchId: batch3 });
+          log(`Rollback complete for batch: ${batch3}`, "success");
+        } catch (e) {
+          log(`Rollback not available (expected): ${e}`, "");
+        }
+
+        log("✅ Phase 3 COMPLETE\n", "success");
+
+        log("\n╔════════════════════════════════════════╗", "success");
+        log("║  ALL PHASES COMPLETED SUCCESSFULLY! ✅  ║", "success");
+        log("╚════════════════════════════════════════╝", "success");
+
+      } catch (err) {
+        log(`\n❌ ERROR: ${err}`, "error");
+        console.error(err);
+      }
+    }
+
+    document.getElementById("run-test").addEventListener("click", runPhase1_3Test);
+    
+    // Welcome message
+    log("Phase 1-3 Interactive Tester loaded", "success");
+    log("Click 'Run Full Test' to start automated testing", "");
+  </script>
+</body>
+</html>

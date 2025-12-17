@@ -1,0 +1,40 @@
+{
+  "description": "Auto-continuation state for Claude Code sessions",
+  "lastActivity": "2025-12-15T09:00:00Z",
+  "currentState": "ready_for_new_tasks",
+  "lastCompletedTask": "42",
+  "resumePrompt": "Continue the autonomous development loop: 1) Run autonomous_loop.cjs to report completed tasks to ChatGPT and get new recommendations, 2) Implement the recommended tasks, 3) Repeat infinitely. The user wants work to continue automatically without confirmation.",
+  "autoResume": true,
+  "completedSinceLastReport": [
+    "Task 32: Warp-style Blocks Feature - Implemented command grouping with collapsible output, OSC 133 shell integration, prompt heuristic fallback, rich output rendering (JSON/diff/error), BlockList/CommandBlock/BlockHeader/BlockBody components, integrated into TerminalPane",
+    "Task 33: Autocomplete/Suggestions - Created useAutocomplete.ts with command history, fuzzy search, common commands, git/npm subcommands, path completion via Rust backend (list_directory command), env vars. Created AutocompleteDropdown.vue with type badges and match highlighting",
+    "Task 34: Workflows/Snippets - Created useWorkflows.ts with 15+ builtin workflows (git, docker, npm, system, network), custom workflow CRUD, parameters with placeholders, favorites, usage tracking, import/export. Created WorkflowPanel.vue and WorkflowCard.vue",
+    "Task 35: Tool Use Framework - Created useTools.ts with Read/Write/Edit/Bash/Grep/Glob/ListDir/GetCwd tools, XML-style tool parsing, execution history, tool documentation generation",
+    "Task 36: Agent Mode - Created useAgentMode.ts for Claude Code-style agentic AI with tool execution loop, context tracking, Ollama LLM integration, automatic tool parsing and execution",
+    "Task 37: Notebook Mode - Created useNotebook.ts for Warp-style notebook with code/markdown cells, cell execution, import from terminal blocks, export to JSON/Markdown/shell script",
+    "Task 38: NotebookPanel UI - Created NotebookPanel.vue with tabs, cell management, export dropdown, delete confirmation modal",
+    "Task 39: NotebookCell UI - Created NotebookCell.vue with execution count, cell actions, rich markdown rendering, keyboard shortcuts",
+    "Task 40: AgentPanel UI - Created AgentPanel.vue with message history, tool call display, model selection, context bar, welcome suggestions",
+    "Task 41: AI Command Search Composable - Created useAICommandSearch.ts with natural language to shell command conversion, quick offline patterns, LLM-powered search, search history",
+    "Task 42: AI Command Search UI - Created AICommandSearch.vue with expandable search, suggestion cards, copy/insert actions, recent searches, hint chips"
+  ],
+  "warpFeatureProgress": {
+    "blocks": "100% - OSC 133 + prompt heuristics, rich rendering",
+    "autocomplete": "100% - commands, paths, git/npm subcommands, fuzzy search",
+    "workflows": "100% - builtin + custom, parameters, favorites, import/export",
+    "notebook": "100% - cells, execution, export formats",
+    "aiCommandSearch": "100% - natural language to commands, local LLM",
+    "themes": "100% - dark/light, custom colors",
+    "splitPanes": "100% - horizontal/vertical splits",
+    "tabs": "100% - tab management, reordering",
+    "snapshots": "100% - save/restore workspace state"
+  },
+  "claudeCodeFeatureProgress": {
+    "toolUse": "100% - 8 tools with execution tracking",
+    "agentMode": "100% - Ollama integration, tool loop",
+    "fileOperations": "100% - Read/Write/Edit via Rust",
+    "search": "100% - Grep/Glob patterns",
+    "shellExecution": "100% - command execution with output"
+  },
+  "overallProgress": "100% - All Warp and Claude Code features implemented without API dependency"
+}

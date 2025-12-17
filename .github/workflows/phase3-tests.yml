@@ -1,0 +1,57 @@
+name: Phase 3 Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  phase3-tests:
+    name: Phase 3 In-Process Tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+        
+    - name: Cache cargo registry
+      uses: actions/cache@v3
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+        
+    - name: Cache cargo index
+      uses: actions/cache@v3
+      with:
+        path: ~/.cargo/git
+        key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+        
+    - name: Cache target directory
+      uses: actions/cache@v3
+      with:
+        path: src-tauri/target
+        key: ${{ runner.os }}-target-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Run Phase 1-3 Integration Tests
+      working-directory: src-tauri
+      run: |
+        RUST_BACKTRACE=1 cargo test --test phase1_3_integration
+      
+    - name: Run Phase 3 In-Process Tests
+      working-directory: src-tauri
+      run: |
+        RUST_BACKTRACE=1 cargo test --test phase3_inproc_runner -- --nocapture
+        
+    - name: Run Test Runner Unit Tests
+      working-directory: src-tauri
+      run: |
+        cargo test --lib test_runner
