@@ -13,6 +13,40 @@
       @replay-started="handleReplayStarted"
       @replay-ended="handleReplayEnded"
     />
+    <!-- Warp-style command blocks -->
+    <div class="blocks-view" v-if="(blocks.length > 0 || activeBlock) && showBlocks">
+      <div class="blocks-toolbar">
+        <span class="block-count">{{ blocks.length + (activeBlock ? 1 : 0) }} command{{ (blocks.length + (activeBlock ? 1 : 0)) !== 1 ? 's' : '' }}</span>
+        <button class="toggle-blocks-btn" @click="showBlocks = false" title="Hide blocks">
+          ▼ Hide
+        </button>
+      </div>
+      <!-- Completed blocks -->
+      <CommandBlock
+        v-for="block in blocks"
+        :key="block.id"
+        :block="block"
+        @toggle="blocksStore.toggleBlock"
+        @rerun="blocksStore.rerunBlock"
+        @copy="blocksStore.copyBlock"
+      />
+      <!-- Currently running block -->
+      <CommandBlock
+        v-if="activeBlock"
+        :key="activeBlock.id"
+        :block="activeBlock"
+        @toggle="blocksStore.toggleBlock"
+        @rerun="blocksStore.rerunBlock"
+        @copy="blocksStore.copyBlock"
+      />
+    </div>
+    <button
+      v-else-if="(blocks.length > 0 || activeBlock) && !showBlocks"
+      class="show-blocks-btn"
+      @click="showBlocks = true"
+    >
+      ▶ Show {{ blocks.length + (activeBlock ? 1 : 0) }} command{{ (blocks.length + (activeBlock ? 1 : 0)) !== 1 ? 's' : '' }}
+    </button>
     <div class="terminal-window" ref="terminalContainer" @click="focusTerminal"></div>
     <AIOverlay
       :isVisible="showAIOverlay"
@@ -39,6 +73,7 @@ import { useTerminalBuffer } from '../composables/useTerminalBuffer'
 import { useBlocks } from '../composables/useBlocks'
 import AIOverlay from './AIOverlay.vue'
 import RecordingControls from './RecordingControls.vue'
+import CommandBlock from './CommandBlock.vue'
 import 'xterm/css/xterm.css'
 
 const props = defineProps({
@@ -135,9 +170,14 @@ const terminalBuffer = useTerminalBuffer(props.paneId, {
 
 // Blocks for command grouping (Warp-style)
 const blocksStore = useBlocks(props.ptyId)
+const blocks = blocksStore.blocks // Expose computed ref for template
+const activeBlock = blocksStore.activeBlock // Currently running block
 
 // Recording state
 const showRecordingControls = ref(true)
+
+// Blocks visibility state
+const showBlocks = ref(true)
 
 // Command tracking for analytics
 let inputBuffer = ''
@@ -633,6 +673,83 @@ defineExpose({
 
 .terminal-pane.active {
   /* Active pane styling handled by parent */
+}
+
+/* Warp-style command blocks */
+.blocks-view {
+  flex: 0 0 auto;
+  max-height: 35%;
+  overflow-y: auto;
+  padding: 8px;
+  background: linear-gradient(to bottom, #1a1a1a 0%, #0d0d0d 100%);
+  border-bottom: 1px solid #3a3a3a;
+}
+
+.blocks-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #333;
+}
+
+.block-count {
+  color: #888;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.toggle-blocks-btn {
+  background: transparent;
+  border: 1px solid #444;
+  color: #aaa;
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 10px;
+  transition: all 0.15s ease;
+}
+
+.toggle-blocks-btn:hover {
+  background: #333;
+  color: #fff;
+  border-color: #555;
+}
+
+.show-blocks-btn {
+  background: linear-gradient(to right, #1e253a 0%, #0f172a 100%);
+  border: none;
+  border-bottom: 1px solid #3a3a3a;
+  color: #64748b;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 11px;
+  width: 100%;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.show-blocks-btn:hover {
+  background: linear-gradient(to right, #2d3a52 0%, #1e253a 100%);
+  color: #94a3b8;
+}
+
+.blocks-view::-webkit-scrollbar {
+  width: 8px;
+}
+
+.blocks-view::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+.blocks-view::-webkit-scrollbar-thumb {
+  background: #404040;
+  border-radius: 4px;
+}
+
+.blocks-view::-webkit-scrollbar-thumb:hover {
+  background: #505050;
 }
 
 .terminal-window {

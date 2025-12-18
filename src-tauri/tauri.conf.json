@@ -17,6 +17,14 @@
         "all": false,
         "open": false
       },
+      "dialog": {
+        "all": false,
+        "open": true,
+        "save": true,
+        "message": true,
+        "ask": true,
+        "confirm": true
+      },
       "clipboard": {
         "all": true,
         "readText": true,
@@ -27,6 +35,8 @@
         "readFile": true,
         "writeFile": true,
         "scope": [
+          "**",
+          "$HOME/**",
           "/tmp/**",
           "$HOME/.zshrc",
           "$HOME/.bashrc"
@@ -43,6 +53,9 @@
         "unminimize": true,
         "startDragging": true,
         "setTitle": true
+      },
+      "path": {
+        "all": true
       }
     },
     "bundle": {

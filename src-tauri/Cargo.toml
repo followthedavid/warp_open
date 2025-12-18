@@ -17,7 +17,7 @@ path = "src/lib.rs"
 tauri-build = { version = "1.5", features = [] }
 
 [dependencies]
-tauri = { version = "1.5", features = [ "fs-read-file", "fs-write-file",
+tauri = { version = "1.5", features = [ "path-all", "dialog-confirm", "dialog-save", "dialog-open", "dialog-ask", "dialog-message", "fs-read-file", "fs-write-file",
     "clipboard-all",
     "window-close",
     "window-hide",

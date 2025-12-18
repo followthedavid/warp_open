@@ -40,19 +40,23 @@ const state = ref<BlockState>({
 // Prompt detection patterns for fallback mode
 const PROMPT_PATTERNS = [
   // Bash/Zsh standard prompts
-  /^[\w\-\.]+@[\w\-\.]+:[~\/][\w\/\-\.]*[$#]\s*/,
-  // Simple $ or # prompt
-  /^[$#]\s+/,
-  // User@host format
-  /^[\w\-]+@[\w\-]+\s*[$#%>]\s*/,
+  /^[\w\-\.]+@[\w\-\.]+:[~\/][\w\/\-\.]*[$#%]\s*/,
+  // Simple $ or # or % prompt
+  /^[$#%]\s+/,
+  // User@host format (including macOS style with %)
+  /^[\w\-]+@[\w\-\.]+\s*[$#%>]\s*/,
   // Path-based prompts (zsh)
   /^[~\/][\w\/\-\.]*\s*[$#%>]\s*/,
+  // macOS default zsh prompt: user@hostname ~ %
+  /^[\w\-]+@[\w\-\.]+ [~\/][\w\/\-\.]* %\s*/,
   // Fish shell
   /^[\w\-]+@[\w\-]+\s+[~\/][\w\/\-\.]*>\s*/,
   // Starship and modern prompts
   /^[❯➜→▶]\s*/,
   // Oh-my-zsh themes
   /^➜\s+[\w\-\.]+\s+/,
+  // Simple % prompt (common in zsh)
+  /^%\s*/,
 ]
 
 // Error output patterns for output type detection

@@ -39,6 +39,8 @@ use commands::{
     edit_file, web_fetch, get_shell_completions, get_ai_completion,
     ssh_connect_password, ssh_connect_key, ssh_send_input, ssh_read_output,
     ssh_resize, ssh_disconnect, ssh_list_sessions, SshState,
+    // Glob and Grep for code navigation
+    glob_files, grep_files,
 };
 use session::{save_session, load_session};
 use ollama::{query_ollama_stream, query_ollama, list_ollama_models};
@@ -270,6 +272,9 @@ fn main() {
             ssh_resize,
             ssh_disconnect,
             ssh_list_sessions,
+            // Glob and Grep
+            glob_files,
+            grep_files,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Tauri application");

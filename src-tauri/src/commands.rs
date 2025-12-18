@@ -501,6 +501,171 @@ pub async fn ai_query_stream(
                                     Err("Missing 'url' argument".to_string())
                                 }
                             },
+                            Some("glob_files") => {
+                                if let Some(pattern) = args.get("pattern").and_then(|p| p.as_str()) {
+                                    eprintln!("[glob_files] ⚡ TOOL EXECUTION ⚡ Pattern: {}", pattern);
+                                    let search_path = args.get("path")
+                                        .and_then(|p| p.as_str())
+                                        .map(|p| shellexpand::tilde(p).to_string())
+                                        .unwrap_or_else(|| ".".to_string());
+                                    let limit = args.get("limit")
+                                        .and_then(|l| l.as_u64())
+                                        .map(|l| l as usize)
+                                        .unwrap_or(50);
+
+                                    // Inline glob matching logic
+                                    let base_path = std::path::Path::new(&search_path);
+                                    let mut matches = Vec::new();
+
+                                    fn glob_recursive(
+                                        dir: &std::path::Path,
+                                        pattern: &str,
+                                        matches: &mut Vec<String>,
+                                        limit: usize,
+                                    ) -> std::io::Result<()> {
+                                        if matches.len() >= limit {
+                                            return Ok(());
+                                        }
+
+                                        let parts: Vec<&str> = pattern.splitn(2, '/').collect();
+                                        let current_pattern = parts[0];
+                                        let remaining = parts.get(1).copied();
+
+                                        if current_pattern == "**" {
+                                            // Recursive descent
+                                            if let Some(rest) = remaining {
+                                                glob_recursive(dir, rest, matches, limit)?;
+                                            }
+                                            if let Ok(entries) = std::fs::read_dir(dir) {
+                                                for entry in entries.flatten() {
+                                                    let path = entry.path();
+                                                    if path.is_dir() {
+                                                        glob_recursive(&path, pattern, matches, limit)?;
+                                                    }
+                                                }
+                                            }
+                                        } else if let Ok(entries) = std::fs::read_dir(dir) {
+                                            let regex_pattern = current_pattern
+                                                .replace(".", "\\.")
+                                                .replace("*", ".*")
+                                                .replace("?", ".");
+                                            let re = regex::Regex::new(&format!("^{}$", regex_pattern)).ok();
+
+                                            for entry in entries.flatten() {
+                                                if matches.len() >= limit {
+                                                    break;
+                                                }
+                                                let path = entry.path();
+                                                let name = entry.file_name().to_string_lossy().to_string();
+
+                                                let matches_pattern = re.as_ref()
+                                                    .map(|r| r.is_match(&name))
+                                                    .unwrap_or(name == current_pattern);
+
+                                                if matches_pattern {
+                                                    if let Some(rest) = remaining {
+                                                        if path.is_dir() {
+                                                            glob_recursive(&path, rest, matches, limit)?;
+                                                        }
+                                                    } else {
+                                                        matches.push(path.display().to_string());
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        Ok(())
+                                    }
+
+                                    let _ = glob_recursive(base_path, pattern, &mut matches, limit);
+                                    Ok(format!("Found {} files:\n{}", matches.len(), matches.join("\n")))
+                                } else {
+                                    Err("Missing 'pattern' argument".to_string())
+                                }
+                            },
+                            Some("grep_files") => {
+                                if let Some(pattern) = args.get("pattern").and_then(|p| p.as_str()) {
+                                    eprintln!("[grep_files] ⚡ TOOL EXECUTION ⚡ Pattern: {}", pattern);
+                                    let search_path = args.get("path")
+                                        .and_then(|p| p.as_str())
+                                        .map(|p| shellexpand::tilde(p).to_string())
+                                        .unwrap_or_else(|| ".".to_string());
+                                    let file_pattern = args.get("file_pattern")
+                                        .and_then(|p| p.as_str());
+                                    let case_insensitive = args.get("case_insensitive")
+                                        .and_then(|c| c.as_bool())
+                                        .unwrap_or(false);
+                                    let max_matches = args.get("max_matches")
+                                        .and_then(|m| m.as_u64())
+                                        .map(|m| m as usize)
+                                        .unwrap_or(50);
+
+                                    let regex = if case_insensitive {
+                                        regex::RegexBuilder::new(pattern)
+                                            .case_insensitive(true)
+                                            .build()
+                                    } else {
+                                        regex::Regex::new(pattern)
+                                    }.map_err(|e| format!("Invalid regex: {}", e))?;
+
+                                    let file_regex = file_pattern.map(|fp| {
+                                        let re_pattern = fp.replace(".", "\\.").replace("*", ".*");
+                                        regex::Regex::new(&format!("{}$", re_pattern)).ok()
+                                    }).flatten();
+
+                                    let mut results: Vec<String> = Vec::new();
+                                    let base = std::path::Path::new(&search_path);
+
+                                    fn search_dir(
+                                        dir: &std::path::Path,
+                                        regex: &regex::Regex,
+                                        file_regex: &Option<regex::Regex>,
+                                        results: &mut Vec<String>,
+                                        max: usize,
+                                    ) {
+                                        if results.len() >= max {
+                                            return;
+                                        }
+                                        if let Ok(entries) = std::fs::read_dir(dir) {
+                                            for entry in entries.flatten() {
+                                                if results.len() >= max {
+                                                    break;
+                                                }
+                                                let path = entry.path();
+                                                if path.is_dir() {
+                                                    let name = path.file_name()
+                                                        .map(|n| n.to_string_lossy().to_string())
+                                                        .unwrap_or_default();
+                                                    if !name.starts_with('.') && name != "node_modules" && name != "target" {
+                                                        search_dir(&path, regex, file_regex, results, max);
+                                                    }
+                                                } else if path.is_file() {
+                                                    let path_str = path.display().to_string();
+                                                    if let Some(ref fr) = file_regex {
+                                                        if !fr.is_match(&path_str) {
+                                                            continue;
+                                                        }
+                                                    }
+                                                    if let Ok(content) = std::fs::read_to_string(&path) {
+                                                        for (line_num, line) in content.lines().enumerate() {
+                                                            if results.len() >= max {
+                                                                break;
+                                                            }
+                                                            if regex.is_match(line) {
+                                                                results.push(format!("{}:{}: {}", path_str, line_num + 1, line.trim()));
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    search_dir(base, &regex, &file_regex, &mut results, max_matches);
+                                    Ok(format!("Found {} matches:\n{}", results.len(), results.join("\n")))
+                                } else {
+                                    Err("Missing 'pattern' argument".to_string())
+                                }
+                            },
                             _ => Err(format!("Unknown tool: {:?}", tool_name))
                         };
 
@@ -758,6 +923,343 @@ fn html_to_text(html: &str) -> String {
     text = whitespace_re.replace_all(&text, "\n\n").to_string();
 
     text.trim().to_string()
+}
+
+// ============================================================================
+// FEATURE: Glob - File pattern matching (Claude Code parity)
+// ============================================================================
+
+#[derive(Debug, Clone, Serialize)]
+pub struct GlobMatch {
+    pub path: String,
+    pub is_dir: bool,
+    pub size: Option<u64>,
+    pub modified: Option<String>,
+}
+
+#[tauri::command]
+pub async fn glob_files(
+    pattern: String,
+    path: Option<String>,
+    limit: Option<usize>,
+) -> Result<Vec<GlobMatch>, String> {
+    eprintln!("[glob_files] Pattern: '{}' in path: {:?}", pattern, path);
+
+    let base_path = path.unwrap_or_else(|| ".".to_string());
+    let expanded_base = shellexpand::tilde(&base_path).to_string();
+    let base = std::path::Path::new(&expanded_base);
+
+    if !base.exists() {
+        return Err(format!("Path does not exist: {}", base_path));
+    }
+
+    let max_results = limit.unwrap_or(100);
+    let mut matches = Vec::new();
+
+    // Use walkdir for recursive glob matching
+    fn matches_glob(path: &str, pattern: &str) -> bool {
+        // Simple glob matching: * matches any chars, ** matches any path
+        let pattern_parts: Vec<&str> = pattern.split('/').collect();
+        let path_parts: Vec<&str> = path.split('/').collect();
+
+        fn match_parts(path_parts: &[&str], pattern_parts: &[&str]) -> bool {
+            if pattern_parts.is_empty() {
+                return path_parts.is_empty();
+            }
+            if path_parts.is_empty() {
+                return pattern_parts.iter().all(|p| *p == "**");
+            }
+
+            let pattern = pattern_parts[0];
+            if pattern == "**" {
+                // ** matches zero or more directories
+                for i in 0..=path_parts.len() {
+                    if match_parts(&path_parts[i..], &pattern_parts[1..]) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            // Simple wildcard matching for single part
+            if match_wildcard(path_parts[0], pattern) {
+                return match_parts(&path_parts[1..], &pattern_parts[1..]);
+            }
+
+            false
+        }
+
+        fn match_wildcard(text: &str, pattern: &str) -> bool {
+            if pattern == "*" {
+                return true;
+            }
+            if !pattern.contains('*') {
+                return text == pattern;
+            }
+
+            // Handle *.ext patterns
+            if pattern.starts_with('*') {
+                let suffix = &pattern[1..];
+                return text.ends_with(suffix);
+            }
+            // Handle prefix* patterns
+            if pattern.ends_with('*') {
+                let prefix = &pattern[..pattern.len()-1];
+                return text.starts_with(prefix);
+            }
+            // Handle pre*suf patterns
+            if let Some(star_pos) = pattern.find('*') {
+                let prefix = &pattern[..star_pos];
+                let suffix = &pattern[star_pos+1..];
+                return text.starts_with(prefix) && text.ends_with(suffix);
+            }
+
+            text == pattern
+        }
+
+        match_parts(&path_parts, &pattern_parts)
+    }
+
+    // Walk directory tree
+    fn walk_dir(
+        dir: &std::path::Path,
+        base: &std::path::Path,
+        pattern: &str,
+        matches: &mut Vec<GlobMatch>,
+        max_results: usize,
+        depth: usize,
+    ) -> std::io::Result<()> {
+        if depth > 20 || matches.len() >= max_results {
+            return Ok(());
+        }
+
+        let entries = std::fs::read_dir(dir)?;
+
+        for entry in entries.flatten() {
+            if matches.len() >= max_results {
+                break;
+            }
+
+            let path = entry.path();
+            let relative = path.strip_prefix(base)
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_else(|_| path.to_string_lossy().to_string());
+
+            // Skip hidden files unless pattern starts with .
+            let name = entry.file_name().to_string_lossy().to_string();
+            if name.starts_with('.') && !pattern.contains(".*") && !pattern.starts_with('.') {
+                continue;
+            }
+
+            let is_dir = path.is_dir();
+
+            // Check if matches pattern
+            if matches_glob(&relative, pattern) {
+                let metadata = entry.metadata().ok();
+                matches.push(GlobMatch {
+                    path: relative,
+                    is_dir,
+                    size: metadata.as_ref().map(|m| m.len()),
+                    modified: metadata.as_ref().and_then(|m| {
+                        m.modified().ok().map(|t| {
+                            let datetime: chrono::DateTime<chrono::Utc> = t.into();
+                            datetime.format("%Y-%m-%d %H:%M:%S").to_string()
+                        })
+                    }),
+                });
+            }
+
+            // Recurse into directories
+            if is_dir {
+                let _ = walk_dir(&path, base, pattern, matches, max_results, depth + 1);
+            }
+        }
+
+        Ok(())
+    }
+
+    walk_dir(base, base, &pattern, &mut matches, max_results, 0)
+        .map_err(|e| format!("Failed to walk directory: {}", e))?;
+
+    // Sort by path
+    matches.sort_by(|a, b| a.path.cmp(&b.path));
+
+    eprintln!("[glob_files] Found {} matches", matches.len());
+    Ok(matches)
+}
+
+// ============================================================================
+// FEATURE: Grep - Content search with regex (Claude Code parity)
+// ============================================================================
+
+#[derive(Debug, Clone, Serialize)]
+pub struct GrepMatch {
+    pub file: String,
+    pub line_number: usize,
+    pub line_content: String,
+    pub match_start: usize,
+    pub match_end: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct GrepResult {
+    pub matches: Vec<GrepMatch>,
+    pub files_searched: usize,
+    pub files_with_matches: usize,
+    pub total_matches: usize,
+    pub truncated: bool,
+}
+
+#[tauri::command]
+pub async fn grep_files(
+    pattern: String,
+    path: Option<String>,
+    file_pattern: Option<String>,  // e.g., "*.rs" to only search rust files
+    case_insensitive: Option<bool>,
+    max_matches: Option<usize>,
+    context_lines: Option<usize>,
+) -> Result<GrepResult, String> {
+    eprintln!("[grep_files] Pattern: '{}' in path: {:?}", pattern, path);
+
+    let base_path = path.unwrap_or_else(|| ".".to_string());
+    let expanded_base = shellexpand::tilde(&base_path).to_string();
+    let base = std::path::Path::new(&expanded_base);
+
+    if !base.exists() {
+        return Err(format!("Path does not exist: {}", base_path));
+    }
+
+    let max_results = max_matches.unwrap_or(500);
+    let case_insensitive = case_insensitive.unwrap_or(false);
+
+    // Compile regex
+    let regex_pattern = if case_insensitive {
+        format!("(?i){}", pattern)
+    } else {
+        pattern.clone()
+    };
+
+    let regex = Regex::new(&regex_pattern)
+        .map_err(|e| format!("Invalid regex pattern: {}", e))?;
+
+    let mut all_matches = Vec::new();
+    let mut files_searched = 0;
+    let mut files_with_matches = 0;
+
+    // Walk directory and search files
+    fn search_dir(
+        dir: &std::path::Path,
+        base: &std::path::Path,
+        regex: &Regex,
+        file_pattern: &Option<String>,
+        matches: &mut Vec<GrepMatch>,
+        files_searched: &mut usize,
+        files_with_matches: &mut usize,
+        max_results: usize,
+        depth: usize,
+    ) -> std::io::Result<()> {
+        if depth > 20 || matches.len() >= max_results {
+            return Ok(());
+        }
+
+        let entries = std::fs::read_dir(dir)?;
+
+        for entry in entries.flatten() {
+            if matches.len() >= max_results {
+                break;
+            }
+
+            let path = entry.path();
+            let name = entry.file_name().to_string_lossy().to_string();
+
+            // Skip hidden files and common non-text directories
+            if name.starts_with('.') || name == "node_modules" || name == "target" || name == "dist" {
+                continue;
+            }
+
+            if path.is_dir() {
+                let _ = search_dir(&path, base, regex, file_pattern, matches, files_searched, files_with_matches, max_results, depth + 1);
+            } else if path.is_file() {
+                // Check file pattern
+                if let Some(ref fp) = file_pattern {
+                    let ext_pattern = if fp.starts_with("*.") {
+                        Some(&fp[2..])
+                    } else {
+                        None
+                    };
+
+                    if let Some(ext) = ext_pattern {
+                        let file_ext = path.extension()
+                            .map(|e| e.to_string_lossy().to_string())
+                            .unwrap_or_default();
+                        if file_ext != ext {
+                            continue;
+                        }
+                    }
+                }
+
+                // Skip binary files (simple heuristic)
+                let ext = path.extension()
+                    .map(|e| e.to_string_lossy().to_lowercase())
+                    .unwrap_or_default();
+
+                let binary_exts = ["png", "jpg", "jpeg", "gif", "ico", "pdf", "zip", "tar", "gz", "exe", "dll", "so", "dylib", "wasm"];
+                if binary_exts.contains(&ext.as_str()) {
+                    continue;
+                }
+
+                *files_searched += 1;
+
+                // Read and search file
+                if let Ok(content) = std::fs::read_to_string(&path) {
+                    let relative = path.strip_prefix(base)
+                        .map(|p| p.to_string_lossy().to_string())
+                        .unwrap_or_else(|_| path.to_string_lossy().to_string());
+
+                    let mut file_has_match = false;
+
+                    for (line_num, line) in content.lines().enumerate() {
+                        if matches.len() >= max_results {
+                            break;
+                        }
+
+                        if let Some(m) = regex.find(line) {
+                            if !file_has_match {
+                                *files_with_matches += 1;
+                                file_has_match = true;
+                            }
+
+                            matches.push(GrepMatch {
+                                file: relative.clone(),
+                                line_number: line_num + 1,
+                                line_content: line.chars().take(500).collect(), // Truncate long lines
+                                match_start: m.start(),
+                                match_end: m.end(),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    search_dir(base, base, &regex, &file_pattern, &mut all_matches, &mut files_searched, &mut files_with_matches, max_results, 0)
+        .map_err(|e| format!("Failed to search directory: {}", e))?;
+
+    let truncated = all_matches.len() >= max_results;
+    let total_matches = all_matches.len();
+
+    eprintln!("[grep_files] Found {} matches in {} files (searched {})", total_matches, files_with_matches, files_searched);
+
+    Ok(GrepResult {
+        matches: all_matches,
+        files_searched,
+        files_with_matches,
+        total_matches,
+        truncated,
+    })
 }
 
 // ============================================================================
@@ -1629,6 +2131,171 @@ pub async fn ai_query_stream_internal(
                                     Ok(text.chars().take(5000).collect::<String>())
                                 } else {
                                     Err("Missing 'url' argument".to_string())
+                                }
+                            },
+                            Some("glob_files") => {
+                                if let Some(pattern) = args.get("pattern").and_then(|p| p.as_str()) {
+                                    eprintln!("[glob_files] ⚡ TOOL EXECUTION ⚡ Pattern: {}", pattern);
+                                    let search_path = args.get("path")
+                                        .and_then(|p| p.as_str())
+                                        .map(|p| shellexpand::tilde(p).to_string())
+                                        .unwrap_or_else(|| ".".to_string());
+                                    let limit = args.get("limit")
+                                        .and_then(|l| l.as_u64())
+                                        .map(|l| l as usize)
+                                        .unwrap_or(50);
+
+                                    // Inline glob matching logic
+                                    let base_path = std::path::Path::new(&search_path);
+                                    let mut matches = Vec::new();
+
+                                    fn glob_recursive_internal(
+                                        dir: &std::path::Path,
+                                        pattern: &str,
+                                        matches: &mut Vec<String>,
+                                        limit: usize,
+                                    ) -> std::io::Result<()> {
+                                        if matches.len() >= limit {
+                                            return Ok(());
+                                        }
+
+                                        let parts: Vec<&str> = pattern.splitn(2, '/').collect();
+                                        let current_pattern = parts[0];
+                                        let remaining = parts.get(1).copied();
+
+                                        if current_pattern == "**" {
+                                            // Recursive descent
+                                            if let Some(rest) = remaining {
+                                                glob_recursive_internal(dir, rest, matches, limit)?;
+                                            }
+                                            if let Ok(entries) = std::fs::read_dir(dir) {
+                                                for entry in entries.flatten() {
+                                                    let path = entry.path();
+                                                    if path.is_dir() {
+                                                        glob_recursive_internal(&path, pattern, matches, limit)?;
+                                                    }
+                                                }
+                                            }
+                                        } else if let Ok(entries) = std::fs::read_dir(dir) {
+                                            let regex_pattern = current_pattern
+                                                .replace(".", "\\.")
+                                                .replace("*", ".*")
+                                                .replace("?", ".");
+                                            let re = regex::Regex::new(&format!("^{}$", regex_pattern)).ok();
+
+                                            for entry in entries.flatten() {
+                                                if matches.len() >= limit {
+                                                    break;
+                                                }
+                                                let path = entry.path();
+                                                let name = entry.file_name().to_string_lossy().to_string();
+
+                                                let matches_pattern = re.as_ref()
+                                                    .map(|r| r.is_match(&name))
+                                                    .unwrap_or(name == current_pattern);
+
+                                                if matches_pattern {
+                                                    if let Some(rest) = remaining {
+                                                        if path.is_dir() {
+                                                            glob_recursive_internal(&path, rest, matches, limit)?;
+                                                        }
+                                                    } else {
+                                                        matches.push(path.display().to_string());
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        Ok(())
+                                    }
+
+                                    let _ = glob_recursive_internal(base_path, pattern, &mut matches, limit);
+                                    Ok(format!("Found {} files:\n{}", matches.len(), matches.join("\n")))
+                                } else {
+                                    Err("Missing 'pattern' argument".to_string())
+                                }
+                            },
+                            Some("grep_files") => {
+                                if let Some(pattern) = args.get("pattern").and_then(|p| p.as_str()) {
+                                    eprintln!("[grep_files] ⚡ TOOL EXECUTION ⚡ Pattern: {}", pattern);
+                                    let search_path = args.get("path")
+                                        .and_then(|p| p.as_str())
+                                        .map(|p| shellexpand::tilde(p).to_string())
+                                        .unwrap_or_else(|| ".".to_string());
+                                    let file_pattern = args.get("file_pattern")
+                                        .and_then(|p| p.as_str());
+                                    let case_insensitive = args.get("case_insensitive")
+                                        .and_then(|c| c.as_bool())
+                                        .unwrap_or(false);
+                                    let max_matches = args.get("max_matches")
+                                        .and_then(|m| m.as_u64())
+                                        .map(|m| m as usize)
+                                        .unwrap_or(50);
+
+                                    let regex = if case_insensitive {
+                                        regex::RegexBuilder::new(pattern)
+                                            .case_insensitive(true)
+                                            .build()
+                                    } else {
+                                        regex::Regex::new(pattern)
+                                    }.map_err(|e| format!("Invalid regex: {}", e))?;
+
+                                    let file_regex = file_pattern.map(|fp| {
+                                        let re_pattern = fp.replace(".", "\\.").replace("*", ".*");
+                                        regex::Regex::new(&format!("{}$", re_pattern)).ok()
+                                    }).flatten();
+
+                                    let mut results: Vec<String> = Vec::new();
+                                    let base = std::path::Path::new(&search_path);
+
+                                    fn search_dir_internal(
+                                        dir: &std::path::Path,
+                                        regex: &regex::Regex,
+                                        file_regex: &Option<regex::Regex>,
+                                        results: &mut Vec<String>,
+                                        max: usize,
+                                    ) {
+                                        if results.len() >= max {
+                                            return;
+                                        }
+                                        if let Ok(entries) = std::fs::read_dir(dir) {
+                                            for entry in entries.flatten() {
+                                                if results.len() >= max {
+                                                    break;
+                                                }
+                                                let path = entry.path();
+                                                if path.is_dir() {
+                                                    let name = path.file_name()
+                                                        .map(|n| n.to_string_lossy().to_string())
+                                                        .unwrap_or_default();
+                                                    if !name.starts_with('.') && name != "node_modules" && name != "target" {
+                                                        search_dir_internal(&path, regex, file_regex, results, max);
+                                                    }
+                                                } else if path.is_file() {
+                                                    let path_str = path.display().to_string();
+                                                    if let Some(ref fr) = file_regex {
+                                                        if !fr.is_match(&path_str) {
+                                                            continue;
+                                                        }
+                                                    }
+                                                    if let Ok(content) = std::fs::read_to_string(&path) {
+                                                        for (line_num, line) in content.lines().enumerate() {
+                                                            if results.len() >= max {
+                                                                break;
+                                                            }
+                                                            if regex.is_match(line) {
+                                                                results.push(format!("{}:{}: {}", path_str, line_num + 1, line.trim()));
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    search_dir_internal(base, &regex, &file_regex, &mut results, max_matches);
+                                    Ok(format!("Found {} matches:\n{}", results.len(), results.join("\n")))
+                                } else {
+                                    Err("Missing 'pattern' argument".to_string())
                                 }
                             },
                             _ => Err(format!("Unknown tool: {:?}", tool_name))

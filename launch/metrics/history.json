@@ -1,5 +1,35 @@
 [
   {
+    "timestamp": 1765941812728,
+    "github": {
+      "stars": 0,
+      "forks": 0,
+      "watchers": 0,
+      "openIssues": 0,
+      "closedIssues": 0,
+      "openPRs": 0,
+      "mergedPRs": 0,
+      "contributors": 1,
+      "releases": 1,
+      "totalDownloads": 0,
+      "topContributors": [
+        {
+          "login": "DavidQuinton",
+          "contributions": 1
+        }
+      ],
+      "recentIssues": [],
+      "recentPRs": []
+    },
+    "trends": {
+      "starsToday": -46194,
+      "issuesOpened": 0,
+      "issuesClosed": 0,
+      "prsOpened": 0,
+      "prsMerged": 0
+    }
+  },
+  {
     "timestamp": 1765938446424,
     "github": {
       "stars": 46194,
