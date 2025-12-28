@@ -809,6 +809,13 @@ CODEEOF`,
     )
   )
 
+  /**
+   * Get risk level for an improvement type
+   */
+  function getRiskLevel(type: ImprovementType): RiskLevel {
+    return TYPE_RISK[type]
+  }
+
   return {
     // State
     improvements: computed(() => improvements.value),
@@ -827,6 +834,9 @@ CODEEOF`,
     applyImprovement,
     rollbackImprovement,
     autoApplyLowRisk,
+
+    // Risk classification
+    getRiskLevel,
 
     // Preferences
     savePreferences: () => savePreferences(preferences)
