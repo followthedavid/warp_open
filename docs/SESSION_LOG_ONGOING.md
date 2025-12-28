@@ -10,6 +10,7 @@
 |------|-------|--------------|
 | 2025-12-27 | Claude Code + Warp Parity | 39 features, 100% parity achieved |
 | 2025-12-27 | Personal Automation Intelligence | 8 composables, "Her" parity system |
+| 2025-12-27 | Daemon UI + Voice/Visual | App integration, voice + visual interfaces |
 
 ---
 
@@ -169,20 +170,144 @@ Build an autonomous intelligence system inspired by "Her" movie:
 
 ---
 
+## Session: 2025-12-27 (Part 3) - Daemon UI + Voice/Visual Interfaces
+
+### Objective
+Integrate the Personal Automation Intelligence into the app UI with:
+- Daemon status panel and controls
+- Approval queue interface
+- Voice input with Whisper integration
+- Visual understanding with screen capture
+
+### Work Completed
+
+#### App.vue Integration
+- Imported `useDaemonOrchestrator` composable
+- Added daemon status button to topbar (animated when running)
+- Added approval count badge (bounces when pending)
+- Added VoiceInputButton to topbar
+- Added 4 new keyboard shortcuts:
+  - `Cmd+Shift+I`: Toggle Daemon Panel
+  - `Cmd+Shift+Q`: Toggle Approval Queue
+  - `Cmd+Shift+V`: Toggle Voice Input
+  - `Cmd+Shift+X`: Toggle Screen Analyzer
+- Added Teleport panels for all new UI components
+- Added CSS animations for daemon status
+
+#### Files Created
+
+| File | Lines | Purpose |
+|------|-------|---------|
+| `DaemonStatusPanel.vue` | 350 | Daemon controls, task list, health status |
+| `ApprovalQueuePanel.vue` | 300 | Approval/reject interface with risk indicators |
+| `useVoiceInterface.ts` | 400 | Whisper + Web Speech API integration |
+| `useVisualUnderstanding.ts` | 350 | Screen capture + vision model analysis |
+| `VoiceInputButton.vue` | 200 | Animated voice button with transcript preview |
+| `ScreenAnalyzer.vue` | 350 | Screen capture UI with history |
+
+#### Features
+
+**DaemonStatusPanel:**
+- Status overview (completed, running, waiting, failed counts)
+- Start/stop daemon controls
+- Next scheduled task preview
+- Full task list with enable/disable toggles
+- Manual task trigger buttons
+- Health status indicator (healthy/degraded/unhealthy)
+
+**ApprovalQueuePanel:**
+- Risk-level color coding (low=green, high=orange, critical=red)
+- Approve/reject buttons per request
+- Bulk actions (reject all, approve low-risk)
+- Expiration countdown
+- Empty state when no approvals
+
+**Voice Interface:**
+- Dual engine support: Whisper.cpp (local) or Web Speech API (fallback)
+- Configurable model size (tiny/base/small/medium/large)
+- Real-time audio level visualization
+- Transcript preview with send/cancel
+- Command parsing for actions, navigation, queries
+- Text-to-speech via macOS `say` command
+
+**Visual Understanding:**
+- Three capture modes: fullscreen, active window, selection
+- Image analysis via Ollama vision models (llava/moondream)
+- OCR text extraction via tesseract
+- Capture history with thumbnails
+- Capability detection for missing dependencies
+
+#### App.vue Changes Summary
+
+```typescript
+// New imports
+import { useDaemonOrchestrator } from './composables/useDaemonOrchestrator'
+
+// Lazy-loaded components
+const DaemonStatusPanel = defineAsyncComponent(...)
+const ApprovalQueuePanel = defineAsyncComponent(...)
+const VoiceInputButton = defineAsyncComponent(...)
+const ScreenAnalyzer = defineAsyncComponent(...)
+
+// New state
+const daemon = useDaemonOrchestrator()
+const showDaemonPanel = ref(false)
+const showApprovalQueue = ref(false)
+const showScreenAnalyzer = ref(false)
+const isVoiceListening = ref(false)
+
+// New handlers
+handleVoiceTranscript(transcript)
+handleScreenAnalysis(analysis)
+```
+
+### Design Decisions
+
+1. **Lazy Loading All Panels**: Components loaded on demand
+   - Reason: Don't bloat initial bundle for rarely-used features
+   - Implementation: `defineAsyncComponent`
+
+2. **Animated Status Indicators**: Daemon button pulses, approvals bounce
+   - Reason: Subtle background activity awareness without interruption
+   - Trade-off: Animation can be distracting, may add setting to disable
+
+3. **Dual Voice Engine**: Try Whisper first, fall back to Web Speech
+   - Reason: Local processing preferred, but browser API works everywhere
+   - Whisper path: `~/.whisper/ggml-{model}.bin`
+
+4. **Vision Model Optional**: Works without llava, just loses description
+   - Reason: OCR still useful even without full image understanding
+   - Prompt: Install with `ollama pull llava`
+
+5. **Transcript Preview Before Send**: User can cancel or edit
+   - Reason: Voice recognition errors shouldn't auto-send garbage to AI
+   - Implementation: Show preview, require click to send
+
+---
+
 ## Ongoing Work Tracker
 
 ### Next Steps (Pending)
-- [ ] Integrate daemon into App.vue initialization
 - [ ] Add system tray icon for status
 - [ ] Implement IMAP integration for email
 - [ ] Add real iCloud Hide My Email API
-- [ ] Voice interface (Whisper + TTS)
-- [ ] Visual understanding (screen capture)
+- [ ] Test memory indexing on real projects
+- [ ] Voice wake word detection
+- [ ] TTS response from AI
+
+### Completed This Session
+- [x] Integrate daemon into App.vue initialization
+- [x] Voice interface (Whisper + TTS)
+- [x] Visual understanding (screen capture)
+- [x] Daemon status panel
+- [x] Approval queue panel
 
 ### Known Issues
 - [ ] Browser automation requires Playwright installation
 - [ ] Email cleaner needs IMAP credentials to function
 - [ ] iCloud Hide My Email generation is placeholder
+- [ ] Whisper requires manual model download
+- [ ] Vision models require `ollama pull llava`
 
 ### Questions to Resolve
 - Best approach for persistent daemon process?

@@ -32,6 +32,29 @@
         <button class="snapshots-btn" @click="showSnapshots = true" title="Workspace Snapshots">
           📷
         </button>
+        <!-- Personal Automation Intelligence Controls -->
+        <button
+          class="daemon-btn"
+          :class="{ active: daemon.status.value.running }"
+          @click="showDaemonPanel = true"
+          :title="daemon.status.value.running ? 'Daemon Running (click to view)' : 'Daemon Stopped'"
+        >
+          {{ daemon.status.value.running ? '🤖' : '💤' }}
+        </button>
+        <button
+          v-if="daemon.pendingApprovals.value.length > 0"
+          class="approvals-btn"
+          @click="showApprovalQueue = true"
+          :title="`${daemon.pendingApprovals.value.length} pending approvals`"
+        >
+          🔔 {{ daemon.pendingApprovals.value.length }}
+        </button>
+        <VoiceInputButton
+          v-if="aiEnabled"
+          :isListening="isVoiceListening"
+          @toggle="isVoiceListening = !isVoiceListening"
+          @transcript="handleVoiceTranscript"
+        />
       </div>
     </header>
 
@@ -216,6 +239,41 @@
         />
       </div>
     </Teleport>
+
+    <!-- Daemon Status Panel -->
+    <Teleport to="body">
+      <DaemonStatusPanel
+        v-if="showDaemonPanel"
+        :status="daemon.status.value"
+        :tasks="daemon.tasks.value"
+        :nextTask="daemon.nextTask.value"
+        @close="showDaemonPanel = false"
+        @start="daemon.start()"
+        @stop="daemon.stop()"
+        @trigger-task="daemon.triggerTask($event)"
+        @toggle-task="daemon.setTaskEnabled($event.id, $event.enabled)"
+      />
+    </Teleport>
+
+    <!-- Approval Queue Panel -->
+    <Teleport to="body">
+      <ApprovalQueuePanel
+        v-if="showApprovalQueue"
+        :approvals="daemon.pendingApprovals.value"
+        @close="showApprovalQueue = false"
+        @approve="daemon.approve($event)"
+        @reject="daemon.reject($event)"
+      />
+    </Teleport>
+
+    <!-- Screen Analyzer -->
+    <Teleport to="body">
+      <ScreenAnalyzer
+        v-if="showScreenAnalyzer"
+        @close="showScreenAnalyzer = false"
+        @analyzed="handleScreenAnalysis"
+      />
+    </Teleport>
   </div>
 </template>
 
@@ -250,6 +308,12 @@ const ToolApprovalDialog = defineAsyncComponent(() => import('./components/ToolA
 const TestRunnerPanel = defineAsyncComponent(() => import('./components/TestRunnerPanel.vue'))
 const InlineAISuggestion = defineAsyncComponent(() => import('./components/InlineAISuggestion.vue'))
 
+// Personal Automation Intelligence Components
+const DaemonStatusPanel = defineAsyncComponent(() => import('./components/DaemonStatusPanel.vue'))
+const ApprovalQueuePanel = defineAsyncComponent(() => import('./components/ApprovalQueuePanel.vue'))
+const VoiceInputButton = defineAsyncComponent(() => import('./components/VoiceInputButton.vue'))
+const ScreenAnalyzer = defineAsyncComponent(() => import('./components/ScreenAnalyzer.vue'))
+
 import { useTabs } from './composables/useTabs'
 import { useProject } from './composables/useProject'
 import { enableTestMode } from './composables/useTestMode'
@@ -265,6 +329,9 @@ import { useTodoList } from './composables/useTodoList'
 import { useMarkdown } from './composables/useMarkdown'
 import { useDirectoryJump } from './composables/useDirectoryJump'
 import { useTools } from './composables/useTools'
+
+// Personal Automation Intelligence Composables
+import { useDaemonOrchestrator } from './composables/useDaemonOrchestrator'
 
 const {
   tabs,
@@ -343,9 +410,18 @@ const { renderMarkdown } = useMarkdown()
 const directoryJump = useDirectoryJump()
 const tools = useTools()
 
+// Personal Automation Intelligence (Daemon)
+const daemon = useDaemonOrchestrator()
+
 // Claude Code UI State
 const showTodoPanel = ref(false)
 const showTestRunner = ref(false)
+
+// Personal Automation Intelligence UI State
+const showDaemonPanel = ref(false)
+const showApprovalQueue = ref(false)
+const showScreenAnalyzer = ref(false)
+const isVoiceListening = ref(false)
 const pendingToolApproval = ref<{
   visible: boolean
   toolName: string
@@ -681,6 +757,33 @@ function handleTestFileOpen(file: string, line?: number) {
   })
 }
 
+// Personal Automation Intelligence Handlers
+function handleVoiceTranscript(transcript: string) {
+  console.log('[App] Voice transcript:', transcript)
+  // Send to active AI tab or create one
+  if (activeTab.value?.kind === 'ai') {
+    sendMessage(activeTab.value.id, transcript)
+  } else {
+    // Create AI tab and send message
+    createAITab().then(tab => {
+      if (tab) {
+        setActiveTab(tab.id)
+        sendMessage(tab.id, transcript)
+      }
+    })
+  }
+  isVoiceListening.value = false
+}
+
+function handleScreenAnalysis(analysis: { screenshot: string; description: string }) {
+  console.log('[App] Screen analysis:', analysis.description)
+  // Send to AI with the analysis context
+  if (activeTab.value?.kind === 'ai') {
+    sendMessage(activeTab.value.id, `[Screen Analysis]\n${analysis.description}`)
+  }
+  showScreenAnalyzer.value = false
+}
+
 // Keyboard shortcut handler
 function handleKeyDown(event: KeyboardEvent) {
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
@@ -736,6 +839,36 @@ function handleKeyDown(event: KeyboardEvent) {
     return
   }
 
+  // Cmd/Ctrl + Shift + I: Toggle Daemon Panel (PAI)
+  if (cmdOrCtrl && event.shiftKey && event.key === 'i') {
+    event.preventDefault()
+    showDaemonPanel.value = !showDaemonPanel.value
+    return
+  }
+
+  // Cmd/Ctrl + Shift + Q: Toggle Approval Queue
+  if (cmdOrCtrl && event.shiftKey && event.key === 'q') {
+    event.preventDefault()
+    showApprovalQueue.value = !showApprovalQueue.value
+    return
+  }
+
+  // Cmd/Ctrl + Shift + V: Toggle Voice Input
+  if (cmdOrCtrl && event.shiftKey && event.key === 'v') {
+    event.preventDefault()
+    if (aiEnabled.value) {
+      isVoiceListening.value = !isVoiceListening.value
+    }
+    return
+  }
+
+  // Cmd/Ctrl + Shift + X: Toggle Screen Analyzer
+  if (cmdOrCtrl && event.shiftKey && event.key === 'x') {
+    event.preventDefault()
+    showScreenAnalyzer.value = !showScreenAnalyzer.value
+    return
+  }
+
   // Escape: Close modals
   if (event.key === 'Escape') {
     if (pendingToolApproval.value) {
@@ -752,6 +885,22 @@ function handleKeyDown(event: KeyboardEvent) {
     }
     if (showTestRunner.value) {
       showTestRunner.value = false
+      return
+    }
+    if (showDaemonPanel.value) {
+      showDaemonPanel.value = false
+      return
+    }
+    if (showApprovalQueue.value) {
+      showApprovalQueue.value = false
+      return
+    }
+    if (showScreenAnalyzer.value) {
+      showScreenAnalyzer.value = false
+      return
+    }
+    if (isVoiceListening.value) {
+      isVoiceListening.value = false
       return
     }
     if (showAnalytics.value) {
@@ -1340,5 +1489,53 @@ button:focus-visible {
   bottom: 60px;
   width: 400px;
   max-height: 50vh;
+}
+
+/* ==========================================================================
+   PERSONAL AUTOMATION INTELLIGENCE STYLES
+   ========================================================================== */
+
+/* Daemon Status Button */
+.daemon-btn {
+  font-size: var(--warp-text-base) !important;
+  padding: var(--warp-space-1) !important;
+  transition: all var(--warp-transition-normal) !important;
+}
+
+.daemon-btn.active {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 4px rgba(34, 197, 94, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(34, 197, 94, 0.6);
+  }
+}
+
+/* Approvals Button */
+.approvals-btn {
+  font-size: var(--warp-text-xs) !important;
+  background: var(--warp-warning-bg) !important;
+  border: 1px solid var(--warp-warning) !important;
+  color: var(--warp-warning) !important;
+  border-radius: var(--warp-radius-full) !important;
+  padding: var(--warp-space-1) var(--warp-space-2) !important;
+  animation: bounce-subtle 1s ease-in-out infinite;
+}
+
+@keyframes bounce-subtle {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+.approvals-btn:hover {
+  background: rgba(245, 158, 11, 0.25) !important;
 }
 </style>
