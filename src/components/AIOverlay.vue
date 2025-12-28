@@ -364,7 +364,7 @@ async function sendQuery() {
     // Use Ollama for local AI
     const aiResponse = await invoke<string>('query_ollama', {
       prompt: buildPrompt(entry.context, query),
-      model: 'deepseek-coder:6.7b',
+      model: 'qwen2.5-coder:1.5b',
     })
 
     entry.response = aiResponse
@@ -462,7 +462,7 @@ async function generateSuggestions() {
     const prompt = buildSuggestionPrompt(props.lastCommand)
     const response = await invoke<string>('query_ollama', {
       prompt,
-      model: 'deepseek-coder:6.7b',
+      model: 'qwen2.5-coder:1.5b',
     })
 
     // Parse suggestions from response

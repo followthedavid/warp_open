@@ -1,296 +1,143 @@
 <template>
-  <div class="status-bar" :class="{ 'status-bar--compact': compact }">
-    <!-- Left section -->
-    <div class="status-bar__left">
-      <!-- Current working directory -->
-      <div class="status-bar__item status-bar__cwd" @click="copyCwd" title="Click to copy">
-        <span class="status-bar__icon">📁</span>
-        <span class="status-bar__text">{{ displayCwd }}</span>
+  <footer class="status-bar">
+    <!-- Left: Git & CWD -->
+    <div class="status-left">
+      <!-- Git Branch -->
+      <div v-if="gitBranch" class="status-item status-git">
+        <svg class="status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M6 3v12M18 9a3 3 0 100 6 3 3 0 000-6zM6 21a3 3 0 100-6 3 3 0 000 6zM18 12a9 9 0 01-9 9" stroke-linecap="round"/>
+        </svg>
+        <span class="git-branch">{{ gitBranch }}</span>
+        <span v-if="gitDirty" class="git-dirty" title="Uncommitted changes">*</span>
       </div>
 
-      <!-- Git branch -->
-      <div v-if="gitInfo.branch" class="status-bar__item status-bar__git" :class="gitStatusClass">
-        <span class="status-bar__icon">{{ gitInfo.isDirty ? '●' : '○' }}</span>
-        <span class="status-bar__text">{{ gitInfo.branch }}</span>
-        <span v-if="gitInfo.ahead > 0" class="status-bar__badge status-bar__badge--ahead">↑{{ gitInfo.ahead }}</span>
-        <span v-if="gitInfo.behind > 0" class="status-bar__badge status-bar__badge--behind">↓{{ gitInfo.behind }}</span>
-      </div>
-
-      <!-- Shell type -->
-      <div class="status-bar__item status-bar__shell">
-        <span class="status-bar__icon">$</span>
-        <span class="status-bar__text">{{ shellType }}</span>
+      <!-- Current Working Directory -->
+      <div class="status-item status-cwd" :title="currentDirectory">
+        <svg class="status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>{{ displayPath }}</span>
       </div>
     </div>
 
-    <!-- Center section -->
-    <div class="status-bar__center">
-      <!-- AI status -->
-      <div v-if="aiStatus.isProcessing" class="status-bar__item status-bar__ai">
-        <span class="status-bar__spinner"></span>
-        <span class="status-bar__text">{{ aiStatus.currentTask || 'AI thinking...' }}</span>
-      </div>
-
-      <!-- Background jobs -->
-      <div v-if="backgroundJobs.length > 0" class="status-bar__item status-bar__jobs" @click="showJobsPanel">
-        <span class="status-bar__icon">⚡</span>
-        <span class="status-bar__text">{{ backgroundJobs.length }} job{{ backgroundJobs.length > 1 ? 's' : '' }}</span>
+    <!-- Center: Notifications -->
+    <div class="status-center">
+      <div v-if="activeNotification" class="status-notification" :class="activeNotification.type">
+        {{ activeNotification.message }}
       </div>
     </div>
 
-    <!-- Right section -->
-    <div class="status-bar__right">
-      <!-- Model -->
-      <div v-if="currentModel" class="status-bar__item status-bar__model" @click="changeModel">
-        <span class="status-bar__icon">🤖</span>
-        <span class="status-bar__text">{{ currentModel }}</span>
+    <!-- Right: AI & Recording Status -->
+    <div class="status-right">
+      <!-- Recording Indicator -->
+      <div v-if="isRecording" class="status-item status-recording">
+        <span class="recording-dot"></span>
+        <span>{{ isPaused ? 'Paused' : 'Recording' }}</span>
       </div>
 
-      <!-- Connection status -->
-      <div class="status-bar__item status-bar__connection" :class="connectionClass">
-        <span class="status-bar__dot"></span>
-        <span class="status-bar__text">{{ connectionStatus }}</span>
+      <!-- AI Status -->
+      <div class="status-item status-ai" :class="{ active: aiEnabled }">
+        <svg class="status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2a2 2 0 012 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 017 7h1a1 1 0 011 1v3a1 1 0 01-1 1h-1v1a2 2 0 01-2 2H5a2 2 0 01-2-2v-1H2a1 1 0 01-1-1v-3a1 1 0 011-1h1a7 7 0 017-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 012-2z" stroke-linecap="round"/>
+          <circle cx="9" cy="13" r="1"/>
+          <circle cx="15" cy="13" r="1"/>
+          <path d="M9 17h6"/>
+        </svg>
+        <span>{{ aiEnabled ? 'AI Active' : 'AI Off' }}</span>
       </div>
 
-      <!-- Time -->
-      <div v-if="showTime" class="status-bar__item status-bar__time">
-        <span class="status-bar__text">{{ currentTime }}</span>
+      <!-- Model Info -->
+      <div v-if="aiEnabled && modelName" class="status-item status-model" :title="modelName">
+        <span>{{ shortModelName }}</span>
+      </div>
+
+      <!-- Ollama Connection -->
+      <div class="status-item status-connection" :class="{ connected: ollamaConnected }">
+        <span class="connection-dot"></span>
+        <span>{{ ollamaConnected ? 'Ollama' : 'Offline' }}</span>
       </div>
     </div>
-  </div>
+  </footer>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
-
-// Check if we're running in Tauri
-const isTauri = '__TAURI__' in window;
-
-type InvokeFn = <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
-let invoke: InvokeFn | null = null;
-
-if (isTauri) {
-  import('@tauri-apps/api/tauri').then(module => {
-    invoke = module.invoke as InvokeFn;
-  });
-}
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 
 // Props
-interface Props {
-  cwd?: string;
-  compact?: boolean;
-  showTime?: boolean;
-}
+const props = defineProps<{
+  currentDirectory?: string
+  gitBranch?: string | null
+  gitDirty?: boolean
+  aiEnabled?: boolean
+  modelName?: string
+  isRecording?: boolean
+  isPaused?: boolean
+}>()
 
-const props = withDefaults(defineProps<Props>(), {
-  cwd: '',
-  compact: false,
-  showTime: true,
-});
+// Ollama connection state
+const ollamaConnected = ref(false)
 
-// Emits
-const emit = defineEmits<{
-  (e: 'show-jobs'): void;
-  (e: 'change-model'): void;
-  (e: 'change-directory', path: string): void;
-}>();
+// Notification state
+const activeNotification = ref<{ message: string; type: 'info' | 'success' | 'warning' | 'error' } | null>(null)
 
-// State
-const currentCwd = ref(props.cwd || '~');
-const currentTime = ref('');
-const shellType = ref('zsh');
-const currentModel = ref('qwen2.5:3b');
+// Display path (shortened for UI)
+const displayPath = computed(() => {
+  const path = props.currentDirectory || '~'
+  const homePrefix = '/Users/'
 
-interface GitInfo {
-  branch: string;
-  isDirty: boolean;
-  ahead: number;
-  behind: number;
-  staged: number;
-  unstaged: number;
-}
-
-const gitInfo = ref<GitInfo>({
-  branch: '',
-  isDirty: false,
-  ahead: 0,
-  behind: 0,
-  staged: 0,
-  unstaged: 0,
-});
-
-interface AIStatus {
-  isProcessing: boolean;
-  currentTask: string;
-}
-
-const aiStatus = ref<AIStatus>({
-  isProcessing: false,
-  currentTask: '',
-});
-
-interface BackgroundJob {
-  id: string;
-  command: string;
-  status: 'running' | 'done' | 'failed';
-  pid?: number;
-}
-
-const backgroundJobs = ref<BackgroundJob[]>([]);
-
-const connectionStatus = ref<'connected' | 'disconnected' | 'connecting'>('connected');
-
-// Computed
-const displayCwd = computed(() => {
-  const cwd = currentCwd.value;
-  const home = '/Users/' + (typeof process !== 'undefined' ? process.env.USER : 'user');
-
-  if (cwd.startsWith(home)) {
-    return '~' + cwd.slice(home.length);
-  }
-
-  // Truncate long paths
-  if (cwd.length > 40) {
-    const parts = cwd.split('/');
-    if (parts.length > 4) {
-      return parts[0] + '/.../' + parts.slice(-2).join('/');
+  if (path.startsWith(homePrefix)) {
+    const afterHome = path.substring(homePrefix.length)
+    const parts = afterHome.split('/')
+    if (parts.length > 1) {
+      return '~/' + parts.slice(1).join('/')
     }
+    return '~'
   }
 
-  return cwd;
-});
+  return path
+})
 
-const gitStatusClass = computed(() => ({
-  'status-bar__git--dirty': gitInfo.value.isDirty,
-  'status-bar__git--clean': !gitInfo.value.isDirty && gitInfo.value.branch,
-}));
+// Short model name
+const shortModelName = computed(() => {
+  const name = props.modelName || ''
+  // Extract just the model name without version/size
+  const parts = name.split(':')
+  return parts[0] || name
+})
 
-const connectionClass = computed(() => ({
-  'status-bar__connection--connected': connectionStatus.value === 'connected',
-  'status-bar__connection--disconnected': connectionStatus.value === 'disconnected',
-  'status-bar__connection--connecting': connectionStatus.value === 'connecting',
-}));
-
-// Methods
-function copyCwd() {
-  navigator.clipboard.writeText(currentCwd.value);
-}
-
-function showJobsPanel() {
-  emit('show-jobs');
-}
-
-function changeModel() {
-  emit('change-model');
-}
-
-async function updateGitInfo() {
-  if (!isTauri || !invoke) return;
-
+// Check Ollama connection
+async function checkOllamaConnection() {
   try {
-    const result = await invoke<{ stdout: string; stderr: string; exit_code: number }>('execute_shell', {
-      command: 'git rev-parse --abbrev-ref HEAD 2>/dev/null',
-      workingDir: currentCwd.value,
-    });
-
-    if (result.exit_code === 0 && result.stdout.trim()) {
-      gitInfo.value.branch = result.stdout.trim();
-
-      // Check for dirty state
-      const statusResult = await invoke<{ stdout: string; stderr: string; exit_code: number }>('execute_shell', {
-        command: 'git status --porcelain 2>/dev/null',
-        workingDir: currentCwd.value,
-      });
-      gitInfo.value.isDirty = statusResult.stdout.trim().length > 0;
-
-      // Check ahead/behind
-      const aheadBehindResult = await invoke<{ stdout: string; stderr: string; exit_code: number }>('execute_shell', {
-        command: 'git rev-list --left-right --count HEAD...@{upstream} 2>/dev/null',
-        workingDir: currentCwd.value,
-      });
-      if (aheadBehindResult.exit_code === 0) {
-        const [ahead, behind] = aheadBehindResult.stdout.trim().split(/\s+/).map(Number);
-        gitInfo.value.ahead = ahead || 0;
-        gitInfo.value.behind = behind || 0;
-      }
-    } else {
-      gitInfo.value.branch = '';
-    }
+    const response = await fetch('http://localhost:11434/api/tags')
+    ollamaConnected.value = response.ok
   } catch {
-    gitInfo.value.branch = '';
+    ollamaConnected.value = false
   }
 }
 
-function updateTime() {
-  const now = new Date();
-  currentTime.value = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
-
-async function detectShell() {
-  if (!isTauri || !invoke) return;
-
-  try {
-    const result = await invoke<{ stdout: string; stderr: string; exit_code: number }>('execute_shell', {
-      command: 'echo $SHELL',
-    });
-    const shell = result.stdout.trim().split('/').pop() || 'sh';
-    shellType.value = shell;
-  } catch {
-    shellType.value = 'sh';
-  }
-}
-
-// Update CWD from prop
-watch(() => props.cwd, (newCwd) => {
-  if (newCwd) {
-    currentCwd.value = newCwd;
-    updateGitInfo();
-  }
-});
-
-// Lifecycle
-let timeInterval: ReturnType<typeof setInterval>;
-let gitInterval: ReturnType<typeof setInterval>;
+// Polling interval
+let connectionCheckInterval: ReturnType<typeof setInterval> | null = null
 
 onMounted(() => {
-  updateTime();
-  timeInterval = setInterval(updateTime, 1000);
-
-  detectShell();
-  updateGitInfo();
-  gitInterval = setInterval(updateGitInfo, 5000);
-});
+  checkOllamaConnection()
+  connectionCheckInterval = setInterval(checkOllamaConnection, 10000) // Check every 10s
+})
 
 onUnmounted(() => {
-  clearInterval(timeInterval);
-  clearInterval(gitInterval);
-});
+  if (connectionCheckInterval) {
+    clearInterval(connectionCheckInterval)
+  }
+})
 
-// Expose methods for parent components
-defineExpose({
-  updateGitInfo,
-  setAIStatus: (processing: boolean, task?: string) => {
-    aiStatus.value.isProcessing = processing;
-    aiStatus.value.currentTask = task || '';
-  },
-  addBackgroundJob: (job: BackgroundJob) => {
-    backgroundJobs.value.push(job);
-  },
-  removeBackgroundJob: (id: string) => {
-    const index = backgroundJobs.value.findIndex(j => j.id === id);
-    if (index >= 0) backgroundJobs.value.splice(index, 1);
-  },
-  setConnectionStatus: (status: 'connected' | 'disconnected' | 'connecting') => {
-    connectionStatus.value = status;
-  },
-  setModel: (model: string) => {
-    currentModel.value = model;
-  },
-  setCwd: (cwd: string) => {
-    currentCwd.value = cwd;
-    updateGitInfo();
-  },
-});
+// Expose method to show notifications
+function showNotification(message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info', duration = 3000) {
+  activeNotification.value = { message, type }
+  setTimeout(() => {
+    activeNotification.value = null
+  }, duration)
+}
+
+defineExpose({ showNotification })
 </script>
 
 <style scoped>
@@ -299,142 +146,152 @@ defineExpose({
   align-items: center;
   justify-content: space-between;
   height: 24px;
-  padding: 0 12px;
-  background: var(--status-bar-bg, #1e1e2e);
-  border-top: 1px solid var(--border-color, #313244);
-  font-size: 12px;
-  color: var(--status-bar-fg, #cdd6f4);
+  padding: 0 var(--warp-space-3);
+  background: var(--warp-bg-surface);
+  border-top: 1px solid var(--warp-border-subtle);
+  font-size: var(--warp-text-xs);
+  color: var(--warp-text-tertiary);
   user-select: none;
 }
 
-.status-bar--compact {
-  height: 20px;
-  font-size: 11px;
-}
-
-.status-bar__left,
-.status-bar__center,
-.status-bar__right {
+.status-left,
+.status-center,
+.status-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--warp-space-4);
 }
 
-.status-bar__left {
+.status-center {
   flex: 1;
+  justify-content: center;
 }
 
-.status-bar__center {
-  flex: 0 0 auto;
-}
-
-.status-bar__right {
-  flex: 1;
-  justify-content: flex-end;
-}
-
-.status-bar__item {
+.status-item {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 6px;
-  border-radius: 3px;
-  cursor: default;
-  transition: background-color 0.15s ease;
+  gap: var(--warp-space-1);
 }
 
-.status-bar__item:hover {
-  background: var(--status-bar-hover, #313244);
+.status-icon {
+  width: 12px;
+  height: 12px;
+  opacity: 0.7;
 }
 
-.status-bar__icon {
-  font-size: 10px;
-  opacity: 0.8;
+/* Git Status */
+.status-git {
+  color: var(--warp-accent-secondary);
 }
 
-.status-bar__text {
-  white-space: nowrap;
+.git-branch {
+  max-width: 150px;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.status-bar__cwd {
-  cursor: pointer;
-  max-width: 200px;
+.git-dirty {
+  color: var(--warp-warning);
+  font-weight: var(--warp-weight-bold);
 }
 
-.status-bar__git--dirty .status-bar__icon {
-  color: var(--git-dirty, #fab387);
+/* CWD */
+.status-cwd {
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.status-bar__git--clean .status-bar__icon {
-  color: var(--git-clean, #a6e3a1);
+/* Notification */
+.status-notification {
+  padding: 2px var(--warp-space-2);
+  border-radius: var(--warp-radius-sm);
+  animation: warp-fade-in 0.2s ease;
 }
 
-.status-bar__badge {
-  font-size: 10px;
-  padding: 0 4px;
-  border-radius: 2px;
-  background: var(--badge-bg, #45475a);
+.status-notification.info {
+  background: var(--warp-info-bg);
+  color: var(--warp-info);
 }
 
-.status-bar__badge--ahead {
-  color: var(--badge-ahead, #89dceb);
+.status-notification.success {
+  background: var(--warp-success-bg);
+  color: var(--warp-success);
 }
 
-.status-bar__badge--behind {
-  color: var(--badge-behind, #f38ba8);
+.status-notification.warning {
+  background: var(--warp-warning-bg);
+  color: var(--warp-warning);
 }
 
-.status-bar__spinner {
-  width: 10px;
-  height: 10px;
-  border: 2px solid var(--spinner-color, #89b4fa);
-  border-top-color: transparent;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
+.status-notification.error {
+  background: var(--warp-error-bg);
+  color: var(--warp-error);
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
+/* Recording Indicator */
+.status-recording {
+  color: var(--warp-error);
 }
 
-.status-bar__jobs {
-  cursor: pointer;
-  color: var(--jobs-color, #f9e2af);
-}
-
-.status-bar__model {
-  cursor: pointer;
-}
-
-.status-bar__dot {
+.recording-dot {
   width: 6px;
   height: 6px;
-  border-radius: 50%;
-  margin-right: 2px;
+  border-radius: var(--warp-radius-full);
+  background: var(--warp-error);
+  animation: warp-pulse 1s ease-in-out infinite;
 }
 
-.status-bar__connection--connected .status-bar__dot {
-  background: var(--connected-color, #a6e3a1);
+/* AI Status */
+.status-ai {
+  color: var(--warp-text-tertiary);
 }
 
-.status-bar__connection--disconnected .status-bar__dot {
-  background: var(--disconnected-color, #f38ba8);
+.status-ai.active {
+  color: var(--warp-success);
 }
 
-.status-bar__connection--connecting .status-bar__dot {
-  background: var(--connecting-color, #f9e2af);
-  animation: pulse 1s ease-in-out infinite;
+.status-ai.active .status-icon {
+  opacity: 1;
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+/* Model */
+.status-model {
+  color: var(--warp-accent-primary);
+  font-family: var(--warp-font-mono);
 }
 
-.status-bar__time {
-  color: var(--time-color, #9399b2);
-  font-variant-numeric: tabular-nums;
+/* Connection Status */
+.status-connection {
+  color: var(--warp-text-disabled);
+}
+
+.status-connection.connected {
+  color: var(--warp-text-tertiary);
+}
+
+.connection-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--warp-radius-full);
+  background: var(--warp-text-disabled);
+}
+
+.status-connection.connected .connection-dot {
+  background: var(--warp-success);
+}
+
+/* Hover effects */
+.status-item {
+  cursor: default;
+  padding: 2px var(--warp-space-1);
+  border-radius: var(--warp-radius-sm);
+  transition: background var(--warp-transition-fast);
+}
+
+.status-item:hover {
+  background: var(--warp-bg-hover);
 }
 </style>

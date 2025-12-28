@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e"/>
+      <stop offset="100%" style="stop-color:#0f0f1a"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#60a5fa"/>
+      <stop offset="100%" style="stop-color:#3b82f6"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+
+  <!-- Terminal prompt symbol > -->
+  <path d="M120 180 L220 256 L120 332"
+        fill="none"
+        stroke="url(#accent)"
+        stroke-width="32"
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
+
+  <!-- Cursor line -->
+  <rect x="260" y="240" width="140" height="32" rx="4" fill="url(#accent)"/>
+
+  <!-- AI sparkle -->
+  <circle cx="420" cy="120" r="8" fill="#fbbf24"/>
+  <circle cx="380" cy="100" r="5" fill="#fbbf24" opacity="0.7"/>
+  <circle cx="440" cy="150" r="4" fill="#fbbf24" opacity="0.5"/>
+</svg>

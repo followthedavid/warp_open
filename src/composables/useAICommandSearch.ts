@@ -118,7 +118,7 @@ export function useAICommandSearch() {
   const currentQuery = ref('')
   const suggestions = ref<CommandSuggestion[]>([])
   const error = ref<string | null>(null)
-  const model = ref('qwen2.5-coder:7b')
+  const model = ref('qwen2.5-coder:1.5b')
 
   // Search history
   const history = computed(() => searchHistory.value)

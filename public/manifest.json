@@ -1,0 +1,88 @@
+{
+  "name": "Warp Open Terminal",
+  "short_name": "Warp Open",
+  "description": "AI-powered terminal with cross-device access",
+  "start_url": "/remote",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#0a84ff",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/icons/icon-72.png",
+      "sizes": "72x72",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-96.png",
+      "sizes": "96x96",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-128.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-144.png",
+      "sizes": "144x144",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-152.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-180.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "apple touch icon"
+    },
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-384.png",
+      "sizes": "384x384",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["developer tools", "productivity", "utilities"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Send Message",
+      "short_name": "Chat",
+      "description": "Send a message to the AI",
+      "url": "/remote?tab=chat",
+      "icons": [{ "src": "/icons/chat-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "View Approvals",
+      "short_name": "Approvals",
+      "description": "Review pending approvals",
+      "url": "/remote?tab=approvals",
+      "icons": [{ "src": "/icons/approve-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Check Status",
+      "short_name": "Status",
+      "description": "View system status",
+      "url": "/remote?tab=status",
+      "icons": [{ "src": "/icons/status-96.png", "sizes": "96x96" }]
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
+}

@@ -10,13 +10,19 @@
       </div>
       <div class="header-actions">
         <select v-model="selectedModel" class="model-select">
-          <option value="qwen2.5-coder:7b">Qwen2.5 Coder 7B</option>
-          <option value="codellama:7b">CodeLlama 7B</option>
-          <option value="deepseek-coder:6.7b">DeepSeek Coder 6.7B</option>
-          <option value="llama3.2:3b">Llama 3.2 3B</option>
+          <option value="qwen2.5-coder:1.5b">Qwen2.5 Coder 1.5B (Fast)</option>
+          <option value="tinydolphin:1.1b">TinyDolphin 1.1B (Uncensored)</option>
+          <option value="coder-uncensored:latest">Coder Uncensored 1.5B</option>
+          <option value="stablelm2:1.6b">StableLM2 1.6B</option>
         </select>
         <button @click="clearChat" class="action-btn" title="Clear chat">
           🗑️
+        </button>
+        <button @click="handleUndo" class="action-btn" title="Undo last action">
+          ↩️
+        </button>
+        <button v-if="isProcessing" @click="handleStop" class="action-btn stop-btn" title="Stop">
+          ⏹️
         </button>
       </div>
     </div>
@@ -129,7 +135,10 @@ const {
   model,
   processMessage,
   updateContext,
-  clearMessages
+  clearMessages,
+  undo,
+  stop,
+  stats
 } = useAgentMode(props.paneId)
 
 const inputText = ref('')
@@ -172,6 +181,17 @@ function handleKeydown(event: KeyboardEvent): void {
 
 function clearChat(): void {
   clearMessages()
+}
+
+async function handleUndo(): Promise<void> {
+  const result = await undo()
+  if (!result.success) {
+    console.log('Undo failed:', result.message)
+  }
+}
+
+function handleStop(): void {
+  stop()
 }
 
 function getRoleIcon(role: string): string {
@@ -279,6 +299,15 @@ function truncate(text: string, maxLen: number): string {
 
 .action-btn:hover {
   background: #3a3a5a;
+}
+
+.action-btn.stop-btn {
+  background: #ef444420;
+  border-color: #ef4444;
+}
+
+.action-btn.stop-btn:hover {
+  background: #ef444440;
 }
 
 .messages-container {

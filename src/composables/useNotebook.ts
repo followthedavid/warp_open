@@ -8,10 +8,12 @@
  * - Cell execution and re-execution
  * - Cell reordering and organization
  * - Export to various formats
+ * - Python and Node.js kernel support with state persistence
  */
 
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { invoke } from '@tauri-apps/api/tauri'
+import { useKernelManager, type KernelType } from './useKernelManager'
 
 export type CellType = 'code' | 'markdown' | 'output' | 'error'
 
@@ -36,7 +38,8 @@ export interface Notebook {
   metadata: {
     createdAt: number
     updatedAt: number
-    kernel?: string
+    kernel?: KernelType
+    kernelId?: string
     cwd?: string
   }
 }
@@ -67,6 +70,9 @@ export function useNotebook() {
   const activeCellId = ref<string | null>(null)
   const isExecuting = ref(false)
 
+  // Kernel manager for Python/Node.js execution
+  const kernelManager = useKernelManager()
+
   // Active notebook
   const activeNotebook = computed(() =>
     notebooks.value.find(n => n.id === activeNotebookId.value) || null
@@ -75,6 +81,11 @@ export function useNotebook() {
   // Active cell
   const activeCell = computed(() =>
     activeNotebook.value?.cells.find(c => c.id === activeCellId.value) || null
+  )
+
+  // Current kernel type
+  const currentKernel = computed(() =>
+    activeNotebook.value?.metadata.kernel || 'shell'
   )
 
   /**
@@ -232,7 +243,43 @@ export function useNotebook() {
   }
 
   /**
-   * Execute a code cell
+   * Set the kernel type for the active notebook
+   */
+  async function setKernel(kernelType: KernelType): Promise<void> {
+    if (!activeNotebook.value) return
+
+    // Shutdown existing kernel if any
+    if (activeNotebook.value.metadata.kernelId) {
+      await kernelManager.shutdownKernel(activeNotebook.value.metadata.kernelId)
+    }
+
+    // Start new kernel
+    const kernelId = await kernelManager.startKernel(kernelType, activeNotebook.value.id)
+
+    activeNotebook.value.metadata.kernel = kernelType
+    activeNotebook.value.metadata.kernelId = kernelId
+    activeNotebook.value.metadata.updatedAt = Date.now()
+    saveNotebooks(notebooks.value)
+  }
+
+  /**
+   * Restart the current kernel (clears all state)
+   */
+  async function restartKernel(): Promise<boolean> {
+    if (!activeNotebook.value?.metadata.kernelId) return false
+    return kernelManager.restartKernel(activeNotebook.value.metadata.kernelId)
+  }
+
+  /**
+   * Interrupt current execution
+   */
+  async function interruptExecution(): Promise<boolean> {
+    if (!activeNotebook.value?.metadata.kernelId) return false
+    return kernelManager.interruptKernel(activeNotebook.value.metadata.kernelId)
+  }
+
+  /**
+   * Execute a code cell using the appropriate kernel
    */
   async function executeCell(cellId: string): Promise<void> {
     if (!activeNotebook.value || isExecuting.value) return
@@ -246,16 +293,35 @@ export function useNotebook() {
     cell.error = undefined
 
     try {
-      const result = await invoke<{ stdout: string; stderr: string; exit_code: number }>('execute_shell', {
-        command: cell.content,
-        cwd: activeNotebook.value.metadata.cwd
-      })
+      const kernelType = activeNotebook.value.metadata.kernel || 'shell'
+      let kernelId = activeNotebook.value.metadata.kernelId
 
-      cell.output = result.stdout
-      if (result.stderr) {
-        cell.error = result.stderr
+      // Auto-start kernel if needed (for Python/Node)
+      if (kernelType !== 'shell' && !kernelId) {
+        kernelId = await kernelManager.startKernel(kernelType, activeNotebook.value.id)
+        activeNotebook.value.metadata.kernelId = kernelId
       }
-      cell.executionCount = (cell.executionCount || 0) + 1
+
+      if (kernelId && kernelType !== 'shell') {
+        // Use kernel manager for Python/Node execution with state
+        const result = await kernelManager.executeCode(kernelId, cell.content)
+        cell.output = result.output
+        if (result.error) {
+          cell.error = result.error
+        }
+        cell.executionCount = result.executionCount
+      } else {
+        // Fallback to shell execution
+        const result = await invoke<{ stdout: string; stderr: string; exit_code: number }>('execute_shell', {
+          command: cell.content,
+          cwd: activeNotebook.value.metadata.cwd
+        })
+        cell.output = result.stdout
+        if (result.stderr) {
+          cell.error = result.stderr
+        }
+        cell.executionCount = (cell.executionCount || 0) + 1
+      }
     } catch (error) {
       cell.error = `Execution failed: ${error}`
     } finally {
@@ -433,6 +499,8 @@ export function useNotebook() {
     activeCell,
     activeCellId: computed(() => activeCellId.value),
     isExecuting: computed(() => isExecuting.value),
+    currentKernel,
+    availableKernels: kernelManager.availableKernels,
 
     // Notebook operations
     createNotebook,
@@ -449,6 +517,12 @@ export function useNotebook() {
     toggleCollapse,
     selectCell,
     navigateCell,
+
+    // Kernel operations
+    setKernel,
+    restartKernel,
+    interruptExecution,
+    detectKernels: kernelManager.detectAvailableKernels,
 
     // Execution
     executeCell,

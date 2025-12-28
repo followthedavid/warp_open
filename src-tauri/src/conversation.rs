@@ -1,7 +1,57 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use std::path::Path;
 use uuid::Uuid;
+
+// ============================================================================
+// Project Context Loading (CLAUDE.md / WARP.md parity)
+// ============================================================================
+
+/// Load project context from CLAUDE.md, WARP.md, or .claude/project.md
+/// Returns the content if found, empty string otherwise
+pub fn load_project_context(cwd: Option<&str>) -> String {
+    let base_dir = cwd.unwrap_or(".");
+
+    // Priority order for project context files
+    let context_files = [
+        "CLAUDE.md",
+        "WARP.md",
+        ".claude/project.md",
+        ".warp/project.md",
+        "PROJECT.md",
+    ];
+
+    for filename in &context_files {
+        let path = Path::new(base_dir).join(filename);
+        if path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&path) {
+                eprintln!("[conversation] Loaded project context from: {}", path.display());
+                return format!(
+                    "\n\n=== PROJECT CONTEXT (from {}) ===\n{}\n=== END PROJECT CONTEXT ===\n",
+                    filename,
+                    content.trim()
+                );
+            }
+        }
+    }
+
+    // Also check home directory for global rules
+    if let Ok(home) = std::env::var("HOME") {
+        let global_path = Path::new(&home).join(".claude/global_rules.md");
+        if global_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&global_path) {
+                eprintln!("[conversation] Loaded global rules from: {}", global_path.display());
+                return format!(
+                    "\n\n=== GLOBAL RULES ===\n{}\n=== END GLOBAL RULES ===\n",
+                    content.trim()
+                );
+            }
+        }
+    }
+
+    String::new()
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
@@ -100,9 +150,17 @@ impl ConversationState {
     }
     
     pub fn create_tab(&self, name: String) -> u64 {
+        self.create_tab_with_context(name, None)
+    }
+
+    /// Create a tab with optional project context from working directory
+    pub fn create_tab_with_context(&self, name: String, cwd: Option<&str>) -> u64 {
         let tab_id = chrono::Utc::now().timestamp_millis() as u64;
-        
-        let system_prompt = "You are a powerful coding AI assistant with access to tools. You MUST use tools to answer questions that require data. NEVER make up answers or guess file contents.
+
+        // Load project context from CLAUDE.md, WARP.md, etc.
+        let project_context = load_project_context(cwd);
+
+        let base_system_prompt = "You are a powerful coding AI assistant with access to tools. You MUST use tools to answer questions that require data. NEVER make up answers or guess file contents.
 
 AVAILABLE TOOLS:
 
@@ -142,6 +200,13 @@ RULES:
 - Use double quotes only in JSON
 - ALWAYS explore the codebase before making changes
 - PREFER edit_file over write_file for existing files";
+
+        // Combine base prompt with project context
+        let system_prompt = if project_context.is_empty() {
+            base_system_prompt.to_string()
+        } else {
+            format!("{}{}", base_system_prompt, project_context)
+        };
         
         let greeting = "Hello! I'm ready to help. Ask me to read files, run commands, or write files.\n\nWhat would you like me to do?";
         

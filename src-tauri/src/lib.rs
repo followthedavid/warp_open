@@ -16,6 +16,7 @@ pub mod scheduler;
 pub mod phase1_6_tests;
 pub mod ollama;
 pub mod ssh_session;
+pub mod scaffolding;
 
 use conversation::ConversationState;
 use std::sync::{Arc, Mutex};

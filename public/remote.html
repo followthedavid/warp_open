@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+
+  <!-- Primary Meta Tags -->
+  <title>Warp Open</title>
+  <meta name="title" content="Warp Open Terminal">
+  <meta name="description" content="AI-powered terminal with cross-device access">
+
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#000000">
+
+  <!-- iOS Specific -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Warp Open">
+  <link rel="apple-touch-icon" href="/icons/icon-180.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180.png">
+  <link rel="apple-touch-icon" sizes="167x167" href="/icons/icon-167.png">
+
+  <!-- Splash Screens for iOS -->
+  <link rel="apple-touch-startup-image"
+        href="/splash/splash-1170x2532.png"
+        media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)">
+  <link rel="apple-touch-startup-image"
+        href="/splash/splash-1284x2778.png"
+        media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3)">
+  <link rel="apple-touch-startup-image"
+        href="/splash/splash-1179x2556.png"
+        media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3)">
+  <link rel="apple-touch-startup-image"
+        href="/splash/splash-2048x2732.png"
+        media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2)">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-16.png">
+
+  <!-- Prevent telephone detection -->
+  <meta name="format-detection" content="telephone=no">
+
+  <!-- Safe area insets support -->
+  <style>
+    :root {
+      --sat: env(safe-area-inset-top, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    #app {
+      width: 100%;
+      height: 100%;
+      padding-top: var(--sat);
+      padding-right: var(--sar);
+      padding-bottom: var(--sab);
+      padding-left: var(--sal);
+    }
+
+    /* Loading state */
+    .loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: #fff;
+      gap: 16px;
+    }
+
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-top-color: #0a84ff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      font-size: 17px;
+      font-weight: 500;
+      opacity: 0.8;
+    }
+
+    /* Offline indicator */
+    .offline-banner {
+      position: fixed;
+      top: var(--sat);
+      left: 0;
+      right: 0;
+      background: #ff453a;
+      color: white;
+      text-align: center;
+      padding: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      z-index: 10000;
+      display: none;
+    }
+
+    .offline .offline-banner {
+      display: block;
+    }
+
+    /* App Container */
+    .app-container {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      background: #000;
+      color: #fff;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 20px;
+      background: rgba(28, 28, 30, 0.8);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 0.5px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #48484a;
+    }
+
+    .status-dot.connecting {
+      background: #ff9f0a;
+      animation: pulse 1.5s ease infinite;
+    }
+
+    .status-dot.connected {
+      background: #30d158;
+    }
+
+    .status-dot.disconnected {
+      background: #ff453a;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* Tab Bar */
+    .tab-bar {
+      display: flex;
+      background: rgba(28, 28, 30, 0.95);
+      padding: 8px;
+      gap: 8px;
+    }
+
+    .tab-bar button {
+      flex: 1;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: #8e8e93;
+      font-size: 15px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .tab-bar button.active {
+      background: #0a84ff;
+      color: #fff;
+    }
+
+    .tab-bar button:active {
+      transform: scale(0.97);
+    }
+
+    .badge {
+      background: #ff453a;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 10px;
+      min-width: 18px;
+    }
+
+    /* Content Area */
+    .content {
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Chat View */
+    .chat-view {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .message {
+      display: flex;
+    }
+
+    .message.user {
+      justify-content: flex-end;
+    }
+
+    .bubble {
+      max-width: 80%;
+      padding: 12px 16px;
+      border-radius: 18px;
+      font-size: 16px;
+      line-height: 1.4;
+    }
+
+    .message.user .bubble {
+      background: #0a84ff;
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+
+    .message.ai .bubble {
+      background: #2c2c2e;
+      color: #fff;
+      border-bottom-left-radius: 4px;
+    }
+
+    .bubble.typing {
+      padding: 12px 20px;
+      letter-spacing: 2px;
+      animation: typingPulse 1s ease infinite;
+    }
+
+    @keyframes typingPulse {
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 1; }
+    }
+
+    .input-area {
+      display: flex;
+      gap: 12px;
+      padding: 12px 16px;
+      background: rgba(28, 28, 30, 0.95);
+      border-top: 0.5px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .input-area input {
+      flex: 1;
+      padding: 12px 16px;
+      border: none;
+      border-radius: 20px;
+      background: #2c2c2e;
+      color: #fff;
+      font-size: 16px;
+      font-family: inherit;
+      outline: none;
+    }
+
+    .input-area input::placeholder {
+      color: #8e8e93;
+    }
+
+    .input-area button {
+      padding: 12px 20px;
+      border: none;
+      border-radius: 20px;
+      background: #0a84ff;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .input-area button:active {
+      transform: scale(0.95);
+      background: #0070df;
+    }
+
+    /* Status View */
+    .status-view {
+      padding: 16px;
+    }
+
+    .status-card {
+      background: #1c1c1e;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .status-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 16px;
+      border-bottom: 0.5px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .status-row:last-child {
+      border-bottom: none;
+    }
+
+    .status-row span:first-child {
+      color: #8e8e93;
+    }
+
+    .status-row .running {
+      color: #30d158;
+    }
+
+    .status-row .idle {
+      color: #8e8e93;
+    }
+
+    /* Approvals View */
+    .approvals-view {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+    }
+
+    .empty-state {
+      text-align: center;
+      color: #8e8e93;
+      padding: 40px 20px;
+      font-size: 17px;
+    }
+
+    .approval-card {
+      background: #1c1c1e;
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    .approval-card h3 {
+      margin: 0 0 8px;
+      font-size: 17px;
+      font-weight: 600;
+    }
+
+    .approval-card p {
+      margin: 0 0 16px;
+      color: #8e8e93;
+      font-size: 15px;
+      line-height: 1.4;
+    }
+
+    .approval-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .approval-actions button {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .approval-actions button:active {
+      transform: scale(0.97);
+    }
+
+    .approval-actions .approve {
+      background: #30d158;
+      color: #fff;
+    }
+
+    .approval-actions .deny {
+      background: #ff453a;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <div class="offline-banner">No Connection</div>
+
+  <div id="app">
+    <div class="loading">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">Connecting to Warp Open...</div>
+    </div>
+  </div>
+
+  <script type="module">
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => console.log('SW registered:', reg.scope))
+        .catch(err => console.error('SW registration failed:', err));
+    }
+
+    // Handle online/offline status
+    function updateOnlineStatus() {
+      document.body.classList.toggle('offline', !navigator.onLine);
+    }
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+    updateOnlineStatus();
+
+    // Haptic feedback helper (for supported devices)
+    window.haptic = (style = 'light') => {
+      if ('vibrate' in navigator) {
+        const patterns = {
+          light: [10],
+          medium: [20],
+          heavy: [30],
+          success: [10, 50, 10],
+          error: [50, 50, 50]
+        };
+        navigator.vibrate(patterns[style] || patterns.light);
+      }
+    };
+
+    // Load the Vue app - inline to avoid build issues
+    import { createApp, ref, onMounted, onUnmounted } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.prod.js';
+
+    const app = createApp({
+      setup() {
+        const connectionState = ref('connecting');
+        const activeTab = ref('chat');
+        const messages = ref([]);
+        const pendingApprovals = ref([]);
+        const systemStatus = ref({
+          aiRunning: false,
+          currentTask: '',
+          lastActivity: new Date(),
+          uptime: 0
+        });
+        const inputMessage = ref('');
+        const isTyping = ref(false);
+        let ws = null;
+
+        function connect() {
+          const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+          const host = location.host || 'localhost:3847';
+          ws = new WebSocket(`${protocol}//${host}/ws`);
+
+          ws.onopen = () => {
+            connectionState.value = 'connected';
+            ws.send(JSON.stringify({ type: 'get_state' }));
+          };
+
+          ws.onmessage = (e) => {
+            const data = JSON.parse(e.data);
+            if (data.type === 'state') {
+              if (data.messages) messages.value = data.messages;
+              if (data.approvals) pendingApprovals.value = data.approvals;
+              if (data.status) systemStatus.value = { ...systemStatus.value, ...data.status };
+            } else if (data.type === 'message') {
+              messages.value.push({ id: data.id, type: data.from, content: data.content, timestamp: new Date() });
+              isTyping.value = false;
+            } else if (data.type === 'typing') {
+              isTyping.value = true;
+            } else if (data.type === 'approval_request') {
+              pendingApprovals.value.push(data);
+              if (window.haptic) window.haptic('medium');
+            }
+          };
+
+          ws.onclose = () => {
+            connectionState.value = 'disconnected';
+            setTimeout(connect, 3000);
+          };
+        }
+
+        function sendMessage() {
+          if (!inputMessage.value.trim() || !ws) return;
+          ws.send(JSON.stringify({ type: 'message', content: inputMessage.value }));
+          messages.value.push({ id: Date.now(), type: 'user', content: inputMessage.value, timestamp: new Date() });
+          inputMessage.value = '';
+        }
+
+        function handleApproval(id, approved) {
+          if (!ws) return;
+          ws.send(JSON.stringify({ type: 'approval_response', id, approved }));
+          pendingApprovals.value = pendingApprovals.value.filter(a => a.id !== id);
+        }
+
+        onMounted(() => connect());
+
+        return { connectionState, activeTab, messages, pendingApprovals, systemStatus, inputMessage, isTyping, sendMessage, handleApproval };
+      },
+      template: `
+        <div class="app-container">
+          <header class="header">
+            <div class="status-dot" :class="connectionState"></div>
+            <h1>Warp Open</h1>
+          </header>
+
+          <nav class="tab-bar">
+            <button :class="{ active: activeTab === 'chat' }" @click="activeTab = 'chat'">Chat</button>
+            <button :class="{ active: activeTab === 'status' }" @click="activeTab = 'status'">Status</button>
+            <button :class="{ active: activeTab === 'approvals' }" @click="activeTab = 'approvals'">
+              Approvals
+              <span v-if="pendingApprovals.length" class="badge">{{ pendingApprovals.length }}</span>
+            </button>
+          </nav>
+
+          <main class="content">
+            <div v-if="activeTab === 'chat'" class="chat-view">
+              <div class="messages">
+                <div v-for="msg in messages" :key="msg.id" :class="['message', msg.type]">
+                  <div class="bubble">{{ msg.content }}</div>
+                </div>
+                <div v-if="isTyping" class="message ai"><div class="bubble typing">...</div></div>
+              </div>
+              <div class="input-area">
+                <input v-model="inputMessage" @keyup.enter="sendMessage" placeholder="Message..." />
+                <button @click="sendMessage">Send</button>
+              </div>
+            </div>
+
+            <div v-if="activeTab === 'status'" class="status-view">
+              <div class="status-card">
+                <div class="status-row"><span>AI Status</span><span :class="systemStatus.aiRunning ? 'running' : 'idle'">{{ systemStatus.aiRunning ? 'Running' : 'Idle' }}</span></div>
+                <div class="status-row"><span>Current Task</span><span>{{ systemStatus.currentTask || 'None' }}</span></div>
+                <div class="status-row"><span>Last Activity</span><span>{{ new Date(systemStatus.lastActivity).toLocaleTimeString() }}</span></div>
+              </div>
+            </div>
+
+            <div v-if="activeTab === 'approvals'" class="approvals-view">
+              <div v-if="!pendingApprovals.length" class="empty-state">No pending approvals</div>
+              <div v-for="approval in pendingApprovals" :key="approval.id" class="approval-card">
+                <h3>{{ approval.action }}</h3>
+                <p>{{ approval.description }}</p>
+                <div class="approval-actions">
+                  <button class="deny" @click="handleApproval(approval.id, false)">Deny</button>
+                  <button class="approve" @click="handleApproval(approval.id, true)">Approve</button>
+                </div>
+              </div>
+            </div>
+          </main>
+        </div>
+      `
+    });
+
+    app.mount('#app');
+  </script>
+</body>
+</html>

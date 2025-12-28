@@ -156,7 +156,7 @@ export function useAIMemory() {
     conversationId: string,
     messages: Array<{ role: string; content: string }>,
     projectPath?: string,
-    model: string = 'qwen2.5:3b'
+    model: string = 'qwen2.5-coder:1.5b'
   ): Promise<ConversationSummary | null> {
     if (messages.length < 3) return null;
 
@@ -231,7 +231,7 @@ Respond with ONLY valid JSON:
   async function extractFacts(
     messages: Array<{ role: string; content: string }>,
     source: string,
-    model: string = 'qwen2.5:3b'
+    model: string = 'qwen2.5-coder:1.5b'
   ): Promise<MemoryEntry[]> {
     const conversationText = messages
       .slice(-10)

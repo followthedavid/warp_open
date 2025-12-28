@@ -8,12 +8,14 @@
  * - useAI - AI query handling
  */
 
+import { describe, test, expect, beforeEach, vi } from 'vitest'
+
 // ============================================
 // Mock Setup
 // ============================================
 
 // Mock invoke for Tauri
-const mockInvoke = jest.fn();
+const mockInvoke = vi.fn();
 (global as any).__TAURI__ = {
   invoke: mockInvoke,
 };
@@ -182,9 +184,20 @@ describe('AI Tool Execution', () => {
     if (BLOCKED_TOOLS.includes(call.tool)) return false;
 
     // Validate args don't contain dangerous content
-    const argsStr = JSON.stringify(call.args);
-    if (argsStr.includes('__proto__')) return false;
-    if (argsStr.includes('constructor')) return false;
+    // Check keys directly since JSON.stringify doesn't include __proto__
+    const checkKeys = (obj: Record<string, unknown>): boolean => {
+      for (const key of Object.keys(obj)) {
+        if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+          return false;
+        }
+        if (typeof obj[key] === 'object' && obj[key] !== null) {
+          if (!checkKeys(obj[key] as Record<string, unknown>)) return false;
+        }
+      }
+      return true;
+    };
+
+    if (!checkKeys(call.args)) return false;
 
     return true;
   };
@@ -210,7 +223,10 @@ describe('AI Tool Execution', () => {
   });
 
   test('blocks prototype pollution in args', () => {
-    const call = { tool: 'read_file', args: { '__proto__': { polluted: true } } };
+    // Create object with __proto__ as actual key (not prototype assignment)
+    const args = Object.create(null);
+    Object.defineProperty(args, '__proto__', { value: { polluted: true }, enumerable: true });
+    const call = { tool: 'read_file', args };
     expect(validateToolCall(call)).toBe(false);
   });
 });
@@ -509,41 +525,4 @@ describe('Input Sanitization', () => {
   });
 });
 
-// ============================================
-// Run Tests
-// ============================================
-
-// When running with ts-node or tsx
-if (typeof describe === 'undefined') {
-  console.log('Running tests manually...');
-
-  // Simple test runner for non-Jest environments
-  const tests: Array<{ name: string; fn: () => void }> = [];
-  (global as any).describe = (name: string, fn: () => void) => {
-    console.log(`\n=== ${name} ===`);
-    fn();
-  };
-  (global as any).test = (name: string, fn: () => void) => {
-    try {
-      fn();
-      console.log(`  ✓ ${name}`);
-    } catch (e) {
-      console.log(`  ✗ ${name}: ${e}`);
-    }
-  };
-  (global as any).expect = (actual: any) => ({
-    toBe: (expected: any) => {
-      if (actual !== expected) throw new Error(`Expected ${expected}, got ${actual}`);
-    },
-    toEqual: (expected: any) => {
-      if (JSON.stringify(actual) !== JSON.stringify(expected)) {
-        throw new Error(`Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
-      }
-    },
-    toContain: (expected: any) => {
-      if (!actual.includes(expected)) throw new Error(`Expected to contain ${expected}`);
-    },
-  });
-  (global as any).beforeEach = (fn: () => void) => fn();
-  (global as any).jest = { fn: () => () => {} };
-}
+// Tests now run via vitest

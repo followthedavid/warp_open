@@ -122,7 +122,7 @@ export function useCodeExplainer() {
       level = 'intermediate',
       type = 'detailed',
       context = '',
-      model = 'qwen2.5:3b',
+      model = 'qwen2.5-coder:1.5b',
     } = options;
 
     try {
@@ -362,7 +362,7 @@ Provide complexity analysis as JSON:
   async function compareCode(
     codeA: string,
     codeB: string,
-    model: string = 'qwen2.5:3b'
+    model: string = 'qwen2.5-coder:1.5b'
   ): Promise<string> {
     const prompt = `Compare these two code snippets and explain the differences:
 

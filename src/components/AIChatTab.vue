@@ -12,6 +12,7 @@
         <label class="model-label" style="margin-left: 16px;">AI Mode:</label>
         <select v-model="aiMode" @change="handleModeChange" class="model-selector mode-selector">
           <option value="local">🏠 Local Only</option>
+          <option value="agent">🤖 Agent (Claude-level)</option>
           <option value="claude" :disabled="!isClaudeConfigured">☁️ Claude Only</option>
           <option value="auto" :disabled="!isClaudeConfigured">🎯 Auto (Orchestrate)</option>
           <option value="hybrid" :disabled="!isClaudeConfigured">🔄 Hybrid (Escalate)</option>
@@ -42,6 +43,7 @@
           :role="msg.role"
           :content="msg.content"
           :timestamp="msg.timestamp"
+          :streaming="msg.streaming"
         />
 
         <!-- Show execution steps if present -->
@@ -140,11 +142,11 @@ const showSettings = ref(false)
 const showDebug = ref(false)  // Hide debug panel by default now
 const showClaudeSettings = ref(false)
 const showPlan = ref(false)
-const selectedModel = ref('deepseek-coder:6.7b')
-const aiMode = ref<'local' | 'claude' | 'auto' | 'hybrid'>('local')
+const selectedModel = ref('qwen2.5-coder:1.5b')
+const aiMode = ref<'local' | 'agent' | 'claude' | 'auto' | 'hybrid'>('local')
 const claudeApiKey = ref('')
 const claudeError = ref('')
-const executionMode = ref(false)
+const executionMode = ref(true) // Default to ON so code execution works out of the box
 
 const isClaudeConfigured = computed(() => claude.isClaudeAvailable.value)
 
@@ -191,13 +193,16 @@ watch([messages, isThinking], () => {
 }, { deep: true })
 
 async function handleSend(message: string) {
+  console.log('[AIChatTab] handleSend called, executionMode:', executionMode.value)
   // If execution mode is enabled, check if this is an actionable task
   if (executionMode.value) {
+    console.log('[AIChatTab] Parsing task from message:', message)
     const taskDescription = await parseTaskFromMessage(message)
+    console.log('[AIChatTab] Task description:', taskDescription)
 
     if (taskDescription) {
       // This is an actionable request - execute it!
-      console.log('[AIChatTab] Executing task:', taskDescription)
+      console.log('[AIChatTab] ✅ Executing task:', taskDescription)
 
       // Add user message
       addMessage(props.tab.id, {
@@ -216,8 +221,13 @@ async function handleSend(message: string) {
       try {
         const task = await executeTask(assistantMessage.id, taskDescription, (steps) => {
           // Update the message with current execution steps
+          console.log('[AIChatTab] Step update:', steps.length, 'steps')
           assistantMessage.executionTask = {
-            ...task,
+            id: assistantMessage.id,
+            messageId: assistantMessage.id,
+            description: taskDescription,
+            status: 'running',
+            createdAt: new Date(),
             steps: [...steps]
           }
         })

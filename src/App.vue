@@ -132,6 +132,17 @@
       @jump-to-pane="handleJumpToPane"
     />
 
+    <!-- Status Bar -->
+    <StatusBar
+      :currentDirectory="currentCwd"
+      :gitBranch="currentGitBranch"
+      :gitDirty="isGitDirty"
+      :aiEnabled="aiEnabled"
+      :modelName="currentModelName"
+      :isRecording="isRecording"
+      :isPaused="isPaused"
+    />
+
     <!-- Toast Notifications -->
     <ToastContainer />
 
@@ -147,11 +158,69 @@
       @recover="handleSessionRecover"
       @dismiss="handleSessionDismiss"
     />
+
+    <!-- Claude Code Features -->
+
+    <!-- Todo Panel (side panel) -->
+    <Teleport to="body">
+      <div v-if="showTodoPanel" class="claude-panel todo-panel-container">
+        <div class="panel-header">
+          <span>Task Progress</span>
+          <button @click="showTodoPanel = false">×</button>
+        </div>
+        <TodoPanel :todos="todos" />
+      </div>
+    </Teleport>
+
+    <!-- Agent Status Bar (bottom of screen, replaces regular status bar when agent is running) -->
+    <AgentStatusBar
+      v-if="agentStatus.isRunning"
+      :currentTask="agentStatus.currentTask"
+      :progress="agentStatus.progress"
+      :isRunning="agentStatus.isRunning"
+      :tokensUsed="agentStatus.tokensUsed"
+      :model="agentStatus.model"
+      :connectionStatus="agentStatus.connectionStatus"
+    />
+
+    <!-- Tool Approval Dialog -->
+    <ToolApprovalDialog
+      v-if="pendingToolApproval"
+      :visible="pendingToolApproval.visible"
+      :toolName="pendingToolApproval.toolName"
+      :description="pendingToolApproval.description"
+      :params="pendingToolApproval.params"
+      :preview="pendingToolApproval.preview"
+      :warnings="pendingToolApproval.warnings"
+      :riskLevel="pendingToolApproval.riskLevel"
+      @decide="handleToolApprovalDecision"
+    />
+
+    <!-- Ask User Question Dialog -->
+    <AskUserQuestion
+      v-if="pendingQuestion"
+      :questions="pendingQuestion.questions"
+      @submit="handleQuestionAnswer"
+    />
+
+    <!-- Test Runner Panel -->
+    <Teleport to="body">
+      <div v-if="showTestRunner" class="claude-panel test-runner-container">
+        <div class="panel-header">
+          <span>Test Runner</span>
+          <button @click="showTestRunner = false">×</button>
+        </div>
+        <TestRunnerPanel
+          :cwd="currentCwd"
+          @openFile="handleTestFileOpen"
+        />
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, defineAsyncComponent } from 'vue'
+import { ref, computed, onMounted, onUnmounted, defineAsyncComponent, Teleport } from 'vue'
 import { invoke } from '@tauri-apps/api/tauri'
 
 // Core components - always loaded
@@ -171,6 +240,15 @@ const SnapshotsPanel = defineAsyncComponent(() => import('./components/Snapshots
 const GlobalSearch = defineAsyncComponent(() => import('./components/GlobalSearch.vue'))
 const AnalyticsDashboard = defineAsyncComponent(() => import('./components/AnalyticsDashboard.vue'))
 const SessionRecovery = defineAsyncComponent(() => import('./components/SessionRecovery.vue'))
+const StatusBar = defineAsyncComponent(() => import('./components/StatusBar.vue'))
+
+// Claude Code Feature Components
+const TodoPanel = defineAsyncComponent(() => import('./components/TodoPanel.vue'))
+const AgentStatusBar = defineAsyncComponent(() => import('./components/AgentStatusBar.vue'))
+const AskUserQuestion = defineAsyncComponent(() => import('./components/AskUserQuestion.vue'))
+const ToolApprovalDialog = defineAsyncComponent(() => import('./components/ToolApprovalDialog.vue'))
+const TestRunnerPanel = defineAsyncComponent(() => import('./components/TestRunnerPanel.vue'))
+const InlineAISuggestion = defineAsyncComponent(() => import('./components/InlineAISuggestion.vue'))
 
 import { useTabs } from './composables/useTabs'
 import { useProject } from './composables/useProject'
@@ -181,6 +259,12 @@ import { useSessionStore, type PersistedSession } from './composables/useSession
 import { useToast } from './composables/useToast'
 import { useAnalytics } from './composables/useAnalytics'
 import { useRecording } from './composables/useRecording'
+
+// Claude Code Feature Composables
+import { useTodoList } from './composables/useTodoList'
+import { useMarkdown } from './composables/useMarkdown'
+import { useDirectoryJump } from './composables/useDirectoryJump'
+import { useTools } from './composables/useTools'
 
 const {
   tabs,
@@ -253,6 +337,46 @@ const {
   isPaused
 } = useRecording()
 
+// Claude Code Features
+const { todos, addTodo, updateTodo, removeTodo, clearCompleted } = useTodoList()
+const { renderMarkdown } = useMarkdown()
+const directoryJump = useDirectoryJump()
+const tools = useTools()
+
+// Claude Code UI State
+const showTodoPanel = ref(false)
+const showTestRunner = ref(false)
+const pendingToolApproval = ref<{
+  visible: boolean
+  toolName: string
+  description: string
+  params: Record<string, unknown>
+  preview: string
+  warnings: string[]
+  riskLevel: 'low' | 'medium' | 'high'
+  resolve: (decision: 'allow' | 'deny' | 'allow_always') => void
+} | null>(null)
+const pendingQuestion = ref<{
+  visible: boolean
+  questions: Array<{
+    question: string
+    header: string
+    options: Array<{ label: string; description: string }>
+    multiSelect: boolean
+  }>
+  resolve: (answers: Record<string, string | string[]>) => void
+} | null>(null)
+
+// Agent status for status bar
+const agentStatus = ref({
+  currentTask: '',
+  progress: 0,
+  isRunning: false,
+  tokensUsed: 0,
+  model: 'qwen2.5-coder:1.5b',
+  connectionStatus: 'connected' as 'connected' | 'disconnected' | 'error'
+})
+
 // UI State
 const showCommandPalette = ref(false)
 const showKeyboardShortcuts = ref(false)
@@ -270,6 +394,18 @@ const paneCwds = new Map<string, string>()
 
 // Pane outputs for global search (last 50 lines per pane)
 const paneOutputs = new Map<string, string>()
+
+// Status bar state
+const currentCwd = computed(() => {
+  if (activeTab.value?.activePaneId) {
+    return paneCwds.get(activeTab.value.activePaneId) || projectRoot.value || '~'
+  }
+  return projectRoot.value || '~'
+})
+
+const currentGitBranch = ref<string | null>(null)
+const isGitDirty = ref(false)
+const currentModelName = ref('qwen2.5-coder:1.5b')
 
 async function handleOpenFolder() {
   await pickProjectFolder()
@@ -514,6 +650,37 @@ async function runActiveEditor() {
   }
 }
 
+// Claude Code Feature Handlers
+function handleToolApprovalDecision(decision: 'allow' | 'deny' | 'allow_always', remember: boolean) {
+  if (pendingToolApproval.value?.resolve) {
+    pendingToolApproval.value.resolve(decision)
+    if (remember && decision !== 'deny') {
+      // Store remembered approvals in localStorage
+      const remembered = JSON.parse(localStorage.getItem('warp_tool_approvals') || '{}')
+      remembered[pendingToolApproval.value.toolName] = decision
+      localStorage.setItem('warp_tool_approvals', JSON.stringify(remembered))
+    }
+  }
+  pendingToolApproval.value = null
+}
+
+function handleQuestionAnswer(answers: Record<string, string | string[]>) {
+  if (pendingQuestion.value?.resolve) {
+    pendingQuestion.value.resolve(answers)
+  }
+  pendingQuestion.value = null
+}
+
+function handleTestFileOpen(file: string, line?: number) {
+  // Open the file in an editor tab at the specified line
+  handleOpenFile(file).then(() => {
+    // If line is specified, we could scroll to it in Monaco
+    if (line && activeTab.value?.kind === 'editor') {
+      console.log(`[App] Opening ${file} at line ${line}`)
+    }
+  })
+}
+
 // Keyboard shortcut handler
 function handleKeyDown(event: KeyboardEvent) {
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
@@ -555,8 +722,38 @@ function handleKeyDown(event: KeyboardEvent) {
     return
   }
 
+  // Cmd/Ctrl + Shift + T: Toggle Todo Panel
+  if (cmdOrCtrl && event.shiftKey && event.key === 't') {
+    event.preventDefault()
+    showTodoPanel.value = !showTodoPanel.value
+    return
+  }
+
+  // Cmd/Ctrl + Shift + Y: Toggle Test Runner
+  if (cmdOrCtrl && event.shiftKey && event.key === 'y') {
+    event.preventDefault()
+    showTestRunner.value = !showTestRunner.value
+    return
+  }
+
   // Escape: Close modals
   if (event.key === 'Escape') {
+    if (pendingToolApproval.value) {
+      handleToolApprovalDecision('deny', false)
+      return
+    }
+    if (pendingQuestion.value) {
+      // Can't dismiss questions without answering - they're required
+      return
+    }
+    if (showTodoPanel.value) {
+      showTodoPanel.value = false
+      return
+    }
+    if (showTestRunner.value) {
+      showTestRunner.value = false
+      return
+    }
     if (showAnalytics.value) {
       showAnalytics.value = false
       return
@@ -706,6 +903,7 @@ onMounted(async () => {
   enableTestMode()
   await refreshProjectTree()
 
+
   // Load app version
   try {
     appVersion.value = await invoke('get_app_version')
@@ -814,146 +1012,333 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* ==========================================================================
+   WARP-INSPIRED APP SHELL
+   ========================================================================== */
+
 .app-shell {
   width: 100vw;
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background-color: #05070f;
-  color: #d1d5db;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto';
+  background-color: var(--warp-bg-base);
+  color: var(--warp-text-primary);
+  font-family: var(--warp-font-ui);
 }
+
+/* ==========================================================================
+   TOPBAR - Minimal Warp-style Header
+   ========================================================================== */
 
 .topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  background: #080c16;
+  height: 38px;
+  padding: 0 var(--warp-space-3);
+  background: var(--warp-bg-base);
+  border-bottom: 1px solid var(--warp-border-subtle);
+  -webkit-app-region: drag; /* Draggable title bar on macOS */
 }
 
 .project-meta {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--warp-space-3);
+  -webkit-app-region: no-drag;
+}
+
+.project-meta strong {
+  font-size: var(--warp-text-sm);
+  font-weight: var(--warp-weight-medium);
+  color: var(--warp-text-primary);
+}
+
+.project-meta small {
+  font-size: var(--warp-text-xs);
+  color: var(--warp-text-tertiary);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sidebar-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
   background: transparent;
   border: none;
-  color: #64748b;
+  color: var(--warp-text-tertiary);
   cursor: pointer;
-  font-size: 16px;
-  padding: 4px 8px;
-  border-radius: 4px;
+  border-radius: var(--warp-radius-md);
+  transition: all var(--warp-transition-normal);
 }
 
 .sidebar-toggle:hover {
-  background: #1e253a;
-  color: #e2e8f0;
+  background: var(--warp-bg-hover);
+  color: var(--warp-text-primary);
 }
 
-.cmd-palette-btn {
-  font-family: 'SF Mono', Monaco, monospace;
-  font-size: 11px;
-  padding: 4px 8px !important;
-  background: #0f172a !important;
-  border: 1px solid #334155 !important;
-}
-
-.cmd-palette-btn:hover {
-  border-color: #3b82f6 !important;
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--warp-space-1);
+  -webkit-app-region: no-drag;
 }
 
 .topbar-actions button {
-  margin-left: 8px;
-  background: #1e253a;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--warp-space-1);
+  padding: var(--warp-space-1) var(--warp-space-2);
+  font-family: var(--warp-font-ui);
+  font-size: var(--warp-text-xs);
+  font-weight: var(--warp-weight-medium);
+  color: var(--warp-text-secondary);
+  background: transparent;
   border: none;
-  color: #e2e8f0;
-  padding: 6px 12px;
-  border-radius: 4px;
+  border-radius: var(--warp-radius-md);
   cursor: pointer;
+  transition: all var(--warp-transition-normal);
 }
 
 .topbar-actions button:hover {
-  background: #2d3a52;
+  background: var(--warp-bg-hover);
+  color: var(--warp-text-primary);
 }
+
+/* Command Palette Button */
+.cmd-palette-btn {
+  font-family: var(--warp-font-mono) !important;
+  font-size: var(--warp-text-xs) !important;
+  padding: var(--warp-space-1) var(--warp-space-2) !important;
+  background: var(--warp-bg-elevated) !important;
+  border: 1px solid var(--warp-border) !important;
+  color: var(--warp-text-tertiary) !important;
+}
+
+.cmd-palette-btn:hover {
+  border-color: var(--warp-accent-primary) !important;
+  color: var(--warp-text-secondary) !important;
+}
+
+/* Snapshots Button */
+.snapshots-btn {
+  font-size: var(--warp-text-base) !important;
+  padding: var(--warp-space-1) !important;
+}
+
+/* ==========================================================================
+   WORKSPACE LAYOUT
+   ========================================================================== */
 
 .workspace {
   flex: 1;
   display: flex;
   min-height: 0;
+  background: var(--warp-bg-base);
 }
+
+/* ==========================================================================
+   SIDEBAR - File Tree Panel
+   ========================================================================== */
 
 .sidebar {
   width: 260px;
-  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--warp-bg-surface);
+  border-right: 1px solid var(--warp-border-subtle);
   overflow: hidden;
-  transition: width 0.2s ease, opacity 0.2s ease;
+  transition: width var(--warp-transition-slow),
+              opacity var(--warp-transition-slow),
+              transform var(--warp-transition-slow);
 }
 
 .sidebar.hidden {
   width: 0;
   opacity: 0;
+  transform: translateX(-10px);
   border-right: none;
 }
+
+/* ==========================================================================
+   MAIN PANE - Terminal/Editor Content Area
+   ========================================================================== */
 
 .main-pane {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-width: 0;
+  background: var(--warp-bg-base);
 }
 
 .pane-content {
   flex: 1;
   min-height: 0;
+  position: relative;
 }
+
+/* ==========================================================================
+   EMPTY STATE
+   ========================================================================== */
 
 .empty-state {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: #94a3b8;
+  color: var(--warp-text-tertiary);
+  font-size: var(--warp-text-sm);
+  gap: var(--warp-space-4);
 }
 
-/* Version badge */
+.empty-state::before {
+  content: '';
+  display: block;
+  width: 48px;
+  height: 48px;
+  background: var(--warp-accent-gradient);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Cpath d='M4 17l6-6-6-6M12 19h8'/%3E%3C/svg%3E") center/contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Cpath d='M4 17l6-6-6-6M12 19h8'/%3E%3C/svg%3E") center/contain no-repeat;
+  opacity: 0.5;
+}
+
+/* ==========================================================================
+   VERSION BADGE
+   ========================================================================== */
+
 .version-badge {
-  font-size: 10px;
-  color: #64748b;
-  background: #0f172a;
-  padding: 2px 6px;
-  border-radius: 4px;
-  margin-left: 8px;
+  font-size: var(--warp-text-xs);
+  font-family: var(--warp-font-mono);
+  color: var(--warp-text-tertiary);
+  background: var(--warp-bg-elevated);
+  padding: 2px var(--warp-space-2);
+  border-radius: var(--warp-radius-full);
+  border: 1px solid var(--warp-border-subtle);
 }
 
-/* AI Status Button */
+/* ==========================================================================
+   AI STATUS BUTTON
+   ========================================================================== */
+
 .ai-status-btn {
-  font-size: 11px;
-  padding: 4px 10px !important;
-  border-radius: 4px;
-  transition: all 0.2s;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: var(--warp-space-1) !important;
+  font-size: var(--warp-text-xs) !important;
+  padding: var(--warp-space-1) var(--warp-space-2) !important;
+  border-radius: var(--warp-radius-full) !important;
+  transition: all var(--warp-transition-normal) !important;
+  font-weight: var(--warp-weight-medium) !important;
 }
 
 .ai-status-btn.enabled {
-  background: #10b98120 !important;
-  border: 1px solid #10b981 !important;
-  color: #10b981 !important;
+  background: var(--warp-success-bg) !important;
+  border: 1px solid var(--warp-success) !important;
+  color: var(--warp-success) !important;
 }
 
 .ai-status-btn.enabled:hover {
-  background: #10b98140 !important;
+  background: rgba(34, 197, 94, 0.25) !important;
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.3);
 }
 
 .ai-status-btn.disabled {
-  background: #f59e0b20 !important;
-  border: 1px solid #f59e0b !important;
-  color: #f59e0b !important;
+  background: var(--warp-warning-bg) !important;
+  border: 1px solid var(--warp-warning) !important;
+  color: var(--warp-warning) !important;
 }
 
 .ai-status-btn.disabled:hover {
-  background: #f59e0b40 !important;
+  background: rgba(245, 158, 11, 0.25) !important;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.3);
+}
+
+/* ==========================================================================
+   FOCUS VISIBLE OVERRIDES
+   ========================================================================== */
+
+button:focus-visible {
+  outline: 2px solid var(--warp-accent-primary);
+  outline-offset: 2px;
+}
+
+/* ==========================================================================
+   SMOOTH TRANSITIONS FOR STATE CHANGES
+   ========================================================================== */
+
+* {
+  transition-property: background-color, border-color, color, opacity;
+  transition-duration: var(--warp-transition-fast);
+  transition-timing-function: ease;
+}
+
+/* Reset transition for elements that should have specific transitions */
+.sidebar,
+.topbar-actions button,
+.ai-status-btn {
+  transition: all var(--warp-transition-normal);
+}
+
+/* ==========================================================================
+   CLAUDE CODE FEATURE PANELS
+   ========================================================================== */
+
+.claude-panel {
+  position: fixed;
+  background: var(--warp-bg-surface);
+  border: 1px solid var(--warp-border);
+  border-radius: var(--warp-radius-lg);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.claude-panel .panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--warp-space-2) var(--warp-space-3);
+  background: var(--warp-bg-elevated);
+  border-bottom: 1px solid var(--warp-border-subtle);
+  font-weight: var(--warp-weight-medium);
+  font-size: var(--warp-text-sm);
+}
+
+.claude-panel .panel-header button {
+  background: transparent;
+  border: none;
+  color: var(--warp-text-tertiary);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--warp-radius-sm);
+}
+
+.claude-panel .panel-header button:hover {
+  background: var(--warp-bg-hover);
+  color: var(--warp-text-primary);
+}
+
+/* Todo Panel - positioned on right side */
+.todo-panel-container {
+  right: var(--warp-space-4);
+  top: 60px;
+  width: 320px;
+  max-height: calc(100vh - 120px);
+}
+
+/* Test Runner Panel - positioned bottom right */
+.test-runner-container {
+  right: var(--warp-space-4);
+  bottom: 60px;
+  width: 400px;
+  max-height: 50vh;
 }
 </style>

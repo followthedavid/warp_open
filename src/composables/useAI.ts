@@ -2,6 +2,7 @@ import { ref, computed } from 'vue';
 import { v4 as uuidv4 } from 'uuid';
 import { useClaude, type AIMode } from './useClaude';
 import type { ExecutionTask } from './useCodeExecution';
+import { useScaffoldedAgent, type AgentEvent, type AgentConfig } from './useScaffoldedAgent';
 
 // Check if we're running in Tauri
 const isTauri = '__TAURI__' in window;
@@ -45,14 +46,15 @@ export interface AISession {
 
 const sessions = ref<Map<string, AISession>>(new Map());
 const availableModels = ref<string[]>([
-  'deepseek-coder:6.7b',
-  'llama3.1:8b',
-  'llama3.2:3b-instruct-q4_K_M',
-  'qwen2.5:3b',
+  'qwen2.5-coder:1.5b',
+  'tinydolphin:1.1b',
+  'coder-uncensored:latest',
+  'stablelm2:1.6b',
 ]);
 
 export function useAI() {
   const claude = useClaude();
+  const scaffoldedAgent = useScaffoldedAgent();
 
   // Load available models from Ollama
   async function refreshModels() {
@@ -65,7 +67,7 @@ export function useAI() {
   }
 
   // Create a new AI session
-  function createSession(tabId: string, model = 'deepseek-coder:6.7b'): AISession {
+  function createSession(tabId: string, model = 'qwen2.5-coder:1.5b'): AISession {
     const session: AISession = {
       id: tabId,
       messages: [],
@@ -364,8 +366,120 @@ export function useAI() {
         // Start with Ollama (user can escalate later)
         return await sendPrompt(tabId, prompt, model);
 
+      case 'agent':
+        // Use scaffolded agent with Claude-level capabilities
+        return await sendPromptAgent(tabId, prompt, model);
+
       default:
         return await sendPrompt(tabId, prompt, model);
+    }
+  }
+
+  // Send prompt to scaffolded agent (Claude-level local capabilities)
+  async function sendPromptAgent(tabId: string, prompt: string, model?: string) {
+    const session = getSession(tabId);
+
+    if (session.isThinking) {
+      addDebugLog(tabId, '[BLOCKED] Already processing a request');
+      return;
+    }
+
+    addDebugLog(tabId, `[AGENT] Starting scaffolded agent task`);
+
+    // Add user message
+    addMessage(tabId, { role: 'user', content: prompt });
+
+    // Create assistant message placeholder
+    const assistantMessage: AIMessage = {
+      id: uuidv4(),
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+      streaming: true,
+    };
+    session.messages.push(assistantMessage);
+    session.isThinking = true;
+
+    try {
+      // Configure agent
+      const config: AgentConfig = {
+        model: model || session.model,
+      };
+
+      // Track agent events for display
+      let lastThinkingContent = '';
+
+      // Start agent task with event callback
+      const sessionId = await scaffoldedAgent.startTask(prompt, config, (event: AgentEvent) => {
+        addDebugLog(tabId, `[AGENT] Event: ${event.type}`);
+
+        // Build up the message content based on events
+        switch (event.type) {
+          case 'Started':
+            assistantMessage.content = `🚀 Starting task: ${event.task}\n\n`;
+            break;
+
+          case 'Thinking':
+            lastThinkingContent = event.content || '';
+            assistantMessage.content += `💭 **Thinking:**\n${lastThinkingContent}\n\n`;
+            break;
+
+          case 'ToolRequest':
+            assistantMessage.content += `🔧 **Using tool:** \`${event.tool}\`\n\`\`\`json\n${JSON.stringify(event.args, null, 2)}\n\`\`\`\n\n`;
+            break;
+
+          case 'ToolResult':
+            const icon = event.success ? '✅' : '❌';
+            const output = event.output || '';
+            const truncatedOutput = output.length > 500 ? output.substring(0, 500) + '...' : output;
+            assistantMessage.content += `${icon} **Result:**\n\`\`\`\n${truncatedOutput}\n\`\`\`\n\n`;
+            break;
+
+          case 'Progress':
+            assistantMessage.content += `📊 Step ${event.step}/${event.total}: ${event.description}\n\n`;
+            break;
+
+          case 'Verification':
+            const verifyIcon = event.passed ? '✓' : '⚠️';
+            assistantMessage.content += `${verifyIcon} **Verification:** ${event.message}\n\n`;
+            break;
+
+          case 'Completed':
+            assistantMessage.content += `\n---\n✨ **Task completed** (${event.steps} steps)\n\n${event.answer}`;
+            assistantMessage.streaming = false;
+            session.isThinking = false;
+            break;
+
+          case 'Failed':
+            assistantMessage.content += `\n---\n❌ **Task failed:** ${event.error}`;
+            assistantMessage.streaming = false;
+            session.isThinking = false;
+            break;
+
+          case 'StreamingChunk':
+            // Update progress indicator without adding to message
+            addDebugLog(tabId, `[AGENT] Streaming: ${event.chars_received} chars`);
+            break;
+
+          case 'Heartbeat':
+            // Show activity indicator
+            addDebugLog(tabId, `[AGENT] ${event.status}`);
+            break;
+
+          case 'Retrying':
+            assistantMessage.content += `🔄 **Retrying** (${event.attempt}/${event.max_attempts}): ${event.reason}\n\n`;
+            addDebugLog(tabId, `[AGENT] Retry ${event.attempt}/${event.max_attempts}: ${event.reason}`);
+            break;
+        }
+      });
+
+      addDebugLog(tabId, `[AGENT] Task started with session ID: ${sessionId}`);
+
+    } catch (error) {
+      addDebugLog(tabId, `[ERROR] Agent task failed: ${error}`);
+      assistantMessage.content = `Error starting agent: ${error}`;
+      assistantMessage.streaming = false;
+      session.isThinking = false;
     }
   }
 
@@ -556,9 +670,11 @@ export function useAI() {
     sendPromptRouted,
     sendPromptClaude,
     sendPromptOrchestrated,
+    sendPromptAgent,
     escalateToClaude,
     clearSession,
     setModel,
     claude,
+    scaffoldedAgent,
   };
 }

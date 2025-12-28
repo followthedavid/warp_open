@@ -1,64 +1,187 @@
+/* ==========================================================================
+   Warp_Open Design System
+   Warp Terminal-inspired styling with modern dark theme
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Phase 1: Foundation - Color & Typography System
+   -------------------------------------------------------------------------- */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
 :root {
-  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-  font-size: 14px;
-  line-height: 1.5;
-  font-weight: 400;
+  /* ==========================================================================
+     WARP-INSPIRED COLOR PALETTE
+     ========================================================================== */
+
+  /* Background Layers (darkest to lightest) */
+  --warp-bg-base: #0a0a0f;        /* Deepest background */
+  --warp-bg-surface: #12121a;      /* Card/panel backgrounds */
+  --warp-bg-elevated: #1a1a24;     /* Elevated surfaces */
+  --warp-bg-hover: #222230;        /* Hover states */
+  --warp-bg-active: #2a2a3a;       /* Active/pressed states */
+
+  /* Accent Colors */
+  --warp-accent-primary: #7c3aed;      /* Primary purple */
+  --warp-accent-primary-hover: #8b5cf6;
+  --warp-accent-secondary: #3b82f6;    /* Blue */
+  --warp-accent-secondary-hover: #60a5fa;
+  --warp-accent-gradient: linear-gradient(135deg, #7c3aed 0%, #3b82f6 100%);
+  --warp-accent-glow: rgba(124, 58, 237, 0.3);
+
+  /* Text Hierarchy */
+  --warp-text-primary: #f4f4f5;        /* Primary text - near white */
+  --warp-text-secondary: #a1a1aa;      /* Secondary - muted */
+  --warp-text-tertiary: #71717a;       /* Tertiary - dimmed */
+  --warp-text-disabled: #52525b;       /* Disabled state */
+
+  /* Semantic Colors */
+  --warp-success: #22c55e;
+  --warp-success-bg: rgba(34, 197, 94, 0.15);
+  --warp-error: #ef4444;
+  --warp-error-bg: rgba(239, 68, 68, 0.15);
+  --warp-warning: #f59e0b;
+  --warp-warning-bg: rgba(245, 158, 11, 0.15);
+  --warp-info: #3b82f6;
+  --warp-info-bg: rgba(59, 130, 246, 0.15);
+
+  /* Border & Dividers */
+  --warp-border: rgba(255, 255, 255, 0.08);
+  --warp-border-subtle: rgba(255, 255, 255, 0.04);
+  --warp-border-focus: rgba(124, 58, 237, 0.5);
+
+  /* Shadows */
+  --warp-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --warp-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+  --warp-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
+  --warp-shadow-glow: 0 0 20px var(--warp-accent-glow);
+
+  /* ==========================================================================
+     TYPOGRAPHY SYSTEM
+     ========================================================================== */
+
+  /* Font Families */
+  --warp-font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --warp-font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Menlo', 'Monaco', monospace;
+
+  /* Font Sizes */
+  --warp-text-xs: 11px;
+  --warp-text-sm: 12px;
+  --warp-text-base: 13px;
+  --warp-text-lg: 14px;
+  --warp-text-xl: 16px;
+  --warp-text-2xl: 18px;
+  --warp-text-3xl: 24px;
+
+  /* Font Weights */
+  --warp-weight-normal: 400;
+  --warp-weight-medium: 500;
+  --warp-weight-semibold: 600;
+  --warp-weight-bold: 700;
+
+  /* Line Heights */
+  --warp-leading-tight: 1.25;
+  --warp-leading-normal: 1.5;
+  --warp-leading-relaxed: 1.75;
+
+  /* Letter Spacing */
+  --warp-tracking-tight: -0.02em;
+  --warp-tracking-normal: 0;
+  --warp-tracking-wide: 0.02em;
+
+  /* ==========================================================================
+     SPACING SYSTEM
+     ========================================================================== */
+
+  --warp-space-1: 4px;
+  --warp-space-2: 8px;
+  --warp-space-3: 12px;
+  --warp-space-4: 16px;
+  --warp-space-5: 20px;
+  --warp-space-6: 24px;
+  --warp-space-8: 32px;
+  --warp-space-10: 40px;
+
+  /* ==========================================================================
+     BORDER RADIUS
+     ========================================================================== */
+
+  --warp-radius-sm: 4px;
+  --warp-radius-md: 6px;
+  --warp-radius-lg: 8px;
+  --warp-radius-xl: 12px;
+  --warp-radius-full: 9999px;
+
+  /* ==========================================================================
+     TRANSITIONS
+     ========================================================================== */
+
+  --warp-transition-fast: 100ms ease;
+  --warp-transition-normal: 150ms ease;
+  --warp-transition-slow: 300ms ease;
+
+  /* ==========================================================================
+     Z-INDEX LAYERS
+     ========================================================================== */
+
+  --warp-z-base: 0;
+  --warp-z-dropdown: 100;
+  --warp-z-sticky: 200;
+  --warp-z-modal: 300;
+  --warp-z-popover: 400;
+  --warp-z-tooltip: 500;
+
+  /* ==========================================================================
+     LEGACY VARIABLES (for backward compatibility)
+     ========================================================================== */
+
+  /* These map to the new system for components not yet updated */
+  --bg-primary: var(--warp-bg-base);
+  --bg-secondary: var(--warp-bg-surface);
+  --bg-tertiary: var(--warp-bg-elevated);
+  --bg-hover: var(--warp-bg-hover);
+  --text-primary: var(--warp-text-primary);
+  --text-secondary: var(--warp-text-secondary);
+  --text-tertiary: var(--warp-text-tertiary);
+  --border-color: var(--warp-border);
+  --border-hover: var(--warp-accent-primary);
+  --primary-color: var(--warp-accent-secondary);
+  --primary-hover: var(--warp-accent-secondary-hover);
+  --success-color: var(--warp-success);
+  --error-color: var(--warp-error);
+
+  /* Status Colors (for planning components) */
+  --status-pending-bg: var(--warp-bg-elevated);
+  --status-pending-text: var(--warp-text-tertiary);
+  --status-warning-bg: var(--warp-warning-bg);
+  --status-warning-text: var(--warp-warning);
+  --status-progress-bg: var(--warp-info-bg);
+  --status-progress-text: var(--warp-info);
+  --status-success-bg: var(--warp-success-bg);
+  --status-success-text: var(--warp-success);
+  --status-error-bg: var(--warp-error-bg);
+  --status-error-text: var(--warp-error);
+
+  /* Core settings */
+  font-family: var(--warp-font-ui);
+  font-size: var(--warp-text-base);
+  line-height: var(--warp-leading-normal);
+  font-weight: var(--warp-weight-normal);
 
   color-scheme: dark;
-  color: #d4d4d4;
-  background-color: #1e1e1e;
+  color: var(--warp-text-primary);
+  background-color: var(--warp-bg-base);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-text-size-adjust: 100%;
-
-  /* Color Variables for Plan Components */
-  /* Background Colors */
-  --bg-primary: #1e1e1e;
-  --bg-secondary: #252525;
-  --bg-tertiary: #2d2d2d;
-  --bg-hover: #333333;
-
-  /* Text Colors */
-  --text-primary: #d4d4d4;
-  --text-secondary: #9ca3af;
-  --text-tertiary: #6b7280;
-
-  /* Border Colors */
-  --border-color: #404040;
-  --border-hover: #4a9eff;
-
-  /* Primary/Brand Colors */
-  --primary-color: #3b82f6;
-  --primary-hover: #2563eb;
-  --primary-bg: #eff6ff;
-
-  /* Status Colors */
-  --status-pending-bg: #f3f4f6;
-  --status-pending-text: #6b7280;
-
-  --status-warning-bg: #fef3c7;
-  --status-warning-text: #92400e;
-
-  --status-progress-bg: #dbeafe;
-  --status-progress-text: #1e40af;
-
-  --status-success-bg: #d1fae5;
-  --status-success-text: #065f46;
-
-  --status-error-bg: #fee2e2;
-  --status-error-text: #991b1b;
-
-  /* Semantic Colors */
-  --success-color: #10b981;
-  --success-hover: #059669;
-
-  --error-color: #ef4444;
-  --error-bg: #fef2f2;
-  --error-text: #991b1b;
 }
+
+/* ==========================================================================
+   BASE RESET & DEFAULTS
+   ========================================================================== */
 
 * {
   margin: 0;
@@ -70,6 +193,7 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
+  background-color: var(--warp-bg-base);
 }
 
 #app {
@@ -77,23 +201,344 @@ html, body {
   height: 100%;
   display: flex;
   flex-direction: column;
+  background-color: var(--warp-bg-base);
 }
 
-/* Scrollbar styling */
+/* ==========================================================================
+   SCROLLBAR STYLING
+   ========================================================================== */
+
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #1e1e1e;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #404040;
-  border-radius: 5px;
+  background: var(--warp-bg-hover);
+  border-radius: var(--warp-radius-full);
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #4a4a4a;
+  background: var(--warp-bg-active);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ==========================================================================
+   FOCUS STATES
+   ========================================================================== */
+
+:focus-visible {
+  outline: 2px solid var(--warp-accent-primary);
+  outline-offset: 2px;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ==========================================================================
+   SELECTION
+   ========================================================================== */
+
+::selection {
+  background-color: rgba(124, 58, 237, 0.4);
+  color: var(--warp-text-primary);
+}
+
+/* ==========================================================================
+   UTILITY CLASSES
+   ========================================================================== */
+
+/* Text utilities */
+.text-primary { color: var(--warp-text-primary); }
+.text-secondary { color: var(--warp-text-secondary); }
+.text-tertiary { color: var(--warp-text-tertiary); }
+.text-accent { color: var(--warp-accent-primary); }
+.text-success { color: var(--warp-success); }
+.text-error { color: var(--warp-error); }
+.text-warning { color: var(--warp-warning); }
+
+/* Font utilities */
+.font-ui { font-family: var(--warp-font-ui); }
+.font-mono { font-family: var(--warp-font-mono); }
+.font-medium { font-weight: var(--warp-weight-medium); }
+.font-semibold { font-weight: var(--warp-weight-semibold); }
+
+/* Background utilities */
+.bg-base { background-color: var(--warp-bg-base); }
+.bg-surface { background-color: var(--warp-bg-surface); }
+.bg-elevated { background-color: var(--warp-bg-elevated); }
+
+/* ==========================================================================
+   COMPONENT BASE STYLES
+   ========================================================================== */
+
+/* Buttons */
+.warp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--warp-space-2);
+  padding: var(--warp-space-2) var(--warp-space-3);
+  font-family: var(--warp-font-ui);
+  font-size: var(--warp-text-sm);
+  font-weight: var(--warp-weight-medium);
+  line-height: 1;
+  color: var(--warp-text-primary);
+  background-color: var(--warp-bg-elevated);
+  border: 1px solid var(--warp-border);
+  border-radius: var(--warp-radius-md);
+  cursor: pointer;
+  transition: all var(--warp-transition-normal);
+  user-select: none;
+}
+
+.warp-btn:hover {
+  background-color: var(--warp-bg-hover);
+  border-color: var(--warp-border-focus);
+}
+
+.warp-btn:active {
+  background-color: var(--warp-bg-active);
+}
+
+.warp-btn-primary {
+  background: var(--warp-accent-gradient);
+  border: none;
+  color: white;
+}
+
+.warp-btn-primary:hover {
+  filter: brightness(1.1);
+  box-shadow: var(--warp-shadow-glow);
+}
+
+/* Inputs */
+.warp-input {
+  width: 100%;
+  padding: var(--warp-space-2) var(--warp-space-3);
+  font-family: var(--warp-font-mono);
+  font-size: var(--warp-text-base);
+  color: var(--warp-text-primary);
+  background-color: var(--warp-bg-elevated);
+  border: 1px solid var(--warp-border);
+  border-radius: var(--warp-radius-md);
+  transition: all var(--warp-transition-normal);
+}
+
+.warp-input:focus {
+  border-color: var(--warp-accent-primary);
+  box-shadow: 0 0 0 2px var(--warp-accent-glow);
+  outline: none;
+}
+
+.warp-input::placeholder {
+  color: var(--warp-text-tertiary);
+}
+
+/* Cards/Panels */
+.warp-card {
+  background-color: var(--warp-bg-surface);
+  border: 1px solid var(--warp-border);
+  border-radius: var(--warp-radius-lg);
+  overflow: hidden;
+}
+
+.warp-card-header {
+  padding: var(--warp-space-3) var(--warp-space-4);
+  background-color: var(--warp-bg-elevated);
+  border-bottom: 1px solid var(--warp-border-subtle);
+}
+
+.warp-card-body {
+  padding: var(--warp-space-4);
+}
+
+/* Badges */
+.warp-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--warp-space-2);
+  font-size: var(--warp-text-xs);
+  font-weight: var(--warp-weight-medium);
+  border-radius: var(--warp-radius-full);
+  background-color: var(--warp-bg-elevated);
+  color: var(--warp-text-secondary);
+}
+
+.warp-badge-success {
+  background-color: var(--warp-success-bg);
+  color: var(--warp-success);
+}
+
+.warp-badge-error {
+  background-color: var(--warp-error-bg);
+  color: var(--warp-error);
+}
+
+.warp-badge-warning {
+  background-color: var(--warp-warning-bg);
+  color: var(--warp-warning);
+}
+
+.warp-badge-info {
+  background-color: var(--warp-info-bg);
+  color: var(--warp-info);
+}
+
+/* ==========================================================================
+   ANIMATIONS
+   ========================================================================== */
+
+@keyframes warp-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes warp-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes warp-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes warp-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes warp-gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-pulse {
+  animation: warp-pulse 2s ease-in-out infinite;
+}
+
+.animate-spin {
+  animation: warp-spin 1s linear infinite;
+}
+
+.animate-fade-in {
+  animation: warp-fade-in 0.2s ease-out;
+}
+
+.animate-slide-up {
+  animation: warp-slide-up 0.2s ease-out;
+}
+
+/* ==========================================================================
+   TERMINAL-SPECIFIC STYLES
+   ========================================================================== */
+
+/* Terminal text should always use mono font */
+.terminal-text,
+.xterm,
+.xterm-viewport,
+.xterm-screen {
+  font-family: var(--warp-font-mono) !important;
+}
+
+/* Command block styling */
+.command-block {
+  background: var(--warp-bg-surface);
+  border-radius: var(--warp-radius-lg);
+  margin: var(--warp-space-2) var(--warp-space-4);
+  overflow: hidden;
+  border: 1px solid var(--warp-border);
+  transition: border-color var(--warp-transition-normal);
+}
+
+.command-block:hover {
+  border-color: var(--warp-border-focus);
+}
+
+.command-block-header {
+  display: flex;
+  align-items: center;
+  padding: var(--warp-space-2) var(--warp-space-3);
+  background: var(--warp-bg-elevated);
+  border-bottom: 1px solid var(--warp-border-subtle);
+  gap: var(--warp-space-2);
+}
+
+.command-block-prompt-icon {
+  color: var(--warp-accent-primary);
+  font-size: var(--warp-text-sm);
+}
+
+.command-block-command {
+  flex: 1;
+  font-family: var(--warp-font-mono);
+  font-size: var(--warp-text-sm);
+  color: var(--warp-text-primary);
+}
+
+.command-block-status {
+  font-size: var(--warp-text-xs);
+  color: var(--warp-text-tertiary);
+}
+
+.command-block-status.success {
+  color: var(--warp-success);
+}
+
+.command-block-status.error {
+  color: var(--warp-error);
+}
+
+.command-block-output {
+  padding: var(--warp-space-3);
+  font-family: var(--warp-font-mono);
+  font-size: var(--warp-text-sm);
+  color: var(--warp-text-secondary);
+  max-height: 300px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Executing state animation */
+.command-block.executing .command-block-header {
+  animation: warp-pulse 1.5s ease-in-out infinite;
+}
+
+/* ==========================================================================
+   GLASS MORPHISM EFFECTS (for modals/overlays)
+   ========================================================================== */
+
+.warp-glass {
+  background: rgba(18, 18, 26, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--warp-border);
+}
+
+.warp-glass-strong {
+  background: rgba(18, 18, 26, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--warp-border);
 }

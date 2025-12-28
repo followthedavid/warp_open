@@ -19,6 +19,7 @@ mod scheduler;
 mod phase1_6_tests;
 mod ollama;
 mod ssh_session;
+mod scaffolding;
 
 use commands::{
     spawn_pty, send_input, resize_pty, read_pty, close_pty, start_pty_output_stream,
@@ -37,10 +38,13 @@ use commands::{
     stop_scheduler, run_phase1_6_auto, PtyRegistry,
     // New features
     edit_file, web_fetch, get_shell_completions, get_ai_completion,
+    init_project_context, load_project_context_cmd,
     ssh_connect_password, ssh_connect_key, ssh_send_input, ssh_read_output,
     ssh_resize, ssh_disconnect, ssh_list_sessions, SshState,
     // Glob and Grep for code navigation
     glob_files, grep_files,
+    // Scaffolded agent commands
+    start_agent_task, list_agent_models, check_ollama_status, execute_agent_tool,
 };
 use session::{save_session, load_session};
 use ollama::{query_ollama_stream, query_ollama, list_ollama_models};
@@ -68,6 +72,8 @@ use scheduler::Scheduler;
 use std::sync::{Arc, Mutex};
 use std::panic;
 use std::io::Write;
+use std::fs::{File, OpenOptions};
+use std::process;
 
 // Custom panic hook for crash reporting
 fn setup_panic_handler() {
@@ -117,7 +123,55 @@ fn setup_panic_handler() {
     }));
 }
 
+/// Single instance lock - prevents multiple app instances
+fn acquire_single_instance_lock() -> Option<File> {
+    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+    let lock_path = format!("{}/.warp_open/warp_open.lock", home);
+
+    // Ensure directory exists
+    let _ = std::fs::create_dir_all(format!("{}/.warp_open", home));
+
+    // Try to create/open the lock file with exclusive access
+    match OpenOptions::new()
+        .write(true)
+        .create(true)
+        .open(&lock_path)
+    {
+        Ok(file) => {
+            // Try to get exclusive lock using flock
+            #[cfg(unix)]
+            {
+                use std::os::unix::io::AsRawFd;
+                let fd = file.as_raw_fd();
+                let result = unsafe { libc::flock(fd, libc::LOCK_EX | libc::LOCK_NB) };
+                if result != 0 {
+                    eprintln!("[SINGLE_INSTANCE] Another instance is already running. Focusing existing window...");
+                    return None;
+                }
+            }
+
+            // Write PID to lock file
+            let mut f = file;
+            let _ = f.write_all(format!("{}", process::id()).as_bytes());
+            Some(f)
+        }
+        Err(e) => {
+            eprintln!("[SINGLE_INSTANCE] Failed to create lock file: {}", e);
+            None
+        }
+    }
+}
+
 fn main() {
+    // Check for single instance FIRST
+    let _lock = match acquire_single_instance_lock() {
+        Some(lock) => lock,
+        None => {
+            eprintln!("[SINGLE_INSTANCE] Warp_Open is already running. Exiting.");
+            process::exit(0);
+        }
+    };
+
     // Setup crash reporting
     setup_panic_handler();
     // Create menu with DevTools option
@@ -264,6 +318,8 @@ fn main() {
             web_fetch,
             get_shell_completions,
             get_ai_completion,
+            init_project_context,
+            load_project_context_cmd,
             // SSH support
             ssh_connect_password,
             ssh_connect_key,
@@ -275,6 +331,11 @@ fn main() {
             // Glob and Grep
             glob_files,
             grep_files,
+            // Scaffolded Agent (Claude-like capabilities)
+            start_agent_task,
+            list_agent_models,
+            check_ollama_status,
+            execute_agent_tool,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Tauri application");

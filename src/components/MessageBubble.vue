@@ -17,8 +17,8 @@
         <div class="result-label">{{ toolResultLabel }}</div>
         <pre>{{ toolResultContent }}</pre>
       </div>
-      <pre v-else-if="isCode">{{ content }}</pre>
-      <span v-else>{{ content }}</span>
+      <pre v-else-if="isCode">{{ content }}<span v-if="streaming" class="streaming-cursor">▋</span></pre>
+      <span v-else>{{ content }}<span v-if="streaming" class="streaming-cursor">▋</span></span>
     </div>
   </div>
 </template>
@@ -30,6 +30,7 @@ const props = defineProps<{
   role: 'user' | 'assistant' | 'system'
   content: string
   timestamp: number | Date
+  streaming?: boolean
 }>()
 
 // Debug logging
@@ -200,5 +201,18 @@ const toolResultContent = computed(() => {
   font-size: 0.85em;
   max-height: 400px;
   overflow-y: auto;
+}
+
+/* Streaming cursor animation */
+.streaming-cursor {
+  display: inline-block;
+  animation: blink 0.7s infinite;
+  color: #00ff00;
+  font-weight: bold;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
 }
 </style>

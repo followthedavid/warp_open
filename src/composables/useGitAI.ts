@@ -45,7 +45,7 @@ export function useGitAI() {
    */
   async function generateCommitMessage(
     repoPath?: string,
-    model: string = 'qwen2.5:3b'
+    model: string = 'qwen2.5-coder:1.5b'
   ): Promise<CommitSuggestion | null> {
     isGenerating.value = true;
 
@@ -134,7 +134,7 @@ Respond with ONLY valid JSON in this exact format:
   async function generatePRDescription(
     baseBranch: string = 'main',
     repoPath?: string,
-    model: string = 'qwen2.5:3b'
+    model: string = 'qwen2.5-coder:1.5b'
   ): Promise<PRDescription | null> {
     isGenerating.value = true;
 
@@ -265,7 +265,7 @@ Respond with ONLY valid JSON:
    */
   async function reviewCode(
     diff: string,
-    model: string = 'qwen2.5:3b'
+    model: string = 'qwen2.5-coder:1.5b'
   ): Promise<string[]> {
     const prompt = `Review this code diff and provide constructive feedback.
 Focus on:

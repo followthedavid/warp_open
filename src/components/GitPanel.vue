@@ -510,7 +510,7 @@ Output ONLY the commit message, nothing else.`;
 
       const response = await invoke<string>('query_ollama', {
         prompt,
-        model: 'qwen2.5:3b',
+        model: 'qwen2.5-coder:1.5b',
       });
 
       commitMessage.value = response.trim().replace(/^["']|["']$/g, '');

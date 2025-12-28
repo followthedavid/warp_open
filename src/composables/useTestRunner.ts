@@ -194,7 +194,7 @@ export function useTestRunner() {
   async function runAndFix(
     directory: string,
     maxIterations: number = 3,
-    model: string = 'qwen2.5:3b',
+    model: string = 'qwen2.5-coder:1.5b',
     onProgress?: (message: string) => void
   ): Promise<{ success: boolean; iterations: number; finalRun: TestRun }> {
     let iteration = 0;

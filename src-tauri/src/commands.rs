@@ -828,6 +828,77 @@ pub async fn edit_file(
 }
 
 // ============================================================================
+// FEATURE: Project Context Init - Create CLAUDE.md template
+// ============================================================================
+
+#[tauri::command]
+pub async fn init_project_context(path: Option<String>) -> Result<String, String> {
+    let base_path = path.unwrap_or_else(|| ".".to_string());
+    let expanded = shellexpand::tilde(&base_path).to_string();
+    let claude_md_path = std::path::Path::new(&expanded).join("CLAUDE.md");
+
+    if claude_md_path.exists() {
+        return Err(format!("CLAUDE.md already exists at {}", claude_md_path.display()));
+    }
+
+    let template = r#"# Project Context for AI Assistant
+
+## Project Overview
+<!-- Describe your project in 2-3 sentences -->
+
+## Tech Stack
+<!-- List main technologies, frameworks, languages -->
+
+## Code Style
+<!-- Describe coding conventions, formatting rules -->
+
+## Important Directories
+<!-- Key directories and their purposes -->
+- `src/` - Source code
+- `tests/` - Test files
+
+## Common Tasks
+<!-- Frequent operations the AI should know about -->
+
+## Rules & Constraints
+<!-- Things the AI should ALWAYS or NEVER do -->
+- ALWAYS run tests before committing
+- NEVER modify files in `vendor/` directory
+
+## Useful Commands
+```bash
+# Build
+npm run build
+
+# Test
+npm test
+
+# Dev server
+npm run dev
+```
+
+---
+*This file is read by the AI assistant to understand your project context.*
+"#;
+
+    std::fs::write(&claude_md_path, template)
+        .map_err(|e| format!("Failed to create CLAUDE.md: {}", e))?;
+
+    Ok(format!("Created CLAUDE.md at {}", claude_md_path.display()))
+}
+
+#[tauri::command]
+pub async fn load_project_context_cmd(path: Option<String>) -> Result<String, String> {
+    let base_path = path.as_deref();
+    let context = crate::conversation::load_project_context(base_path);
+    if context.is_empty() {
+        Ok("No project context file found (CLAUDE.md, WARP.md, etc.)".to_string())
+    } else {
+        Ok(context)
+    }
+}
+
+// ============================================================================
 // FEATURE: Web Fetch Tool - Fetch web content (Claude Code parity)
 // ============================================================================
 
@@ -3412,6 +3483,321 @@ pub async fn run_phase1_6_auto(
     let _ = app.emit_all("phase1_6_log", "All phases complete! 🎉");
     let _ = app.emit_all("phase1_6_log", "═══════════════════════════════════");
     Ok(())
+}
+
+// ============================================================================
+// SCAFFOLDED AGENT COMMANDS
+// These commands use the scaffolding system for Claude-like agentic behavior
+// ============================================================================
+
+use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
+use tokio::sync::mpsc;
+
+lazy_static::lazy_static! {
+    static ref AGENT_SESSIONS: Mutex<HashMap<u64, AgentSession>> = Mutex::new(HashMap::new());
+    static ref NEXT_AGENT_ID: AtomicU64 = AtomicU64::new(1);
+}
+
+struct AgentSession {
+    #[allow(dead_code)]
+    id: u64,
+    #[allow(dead_code)]
+    task: String,
+    #[allow(dead_code)]
+    created_at: chrono::DateTime<chrono::Utc>,
+}
+
+/// Start a new scaffolded agent session for a task
+#[tauri::command]
+pub async fn start_agent_task(
+    app: tauri::AppHandle,
+    task: String,
+    config: Option<serde_json::Value>,
+) -> Result<u64, String> {
+    use crate::scaffolding::{OllamaAgent, OllamaAgentConfig, LoopConfig, AgentEvent};
+
+    let session_id = NEXT_AGENT_ID.fetch_add(1, AtomicOrdering::SeqCst);
+
+    // Parse config or use defaults
+    let agent_config = if let Some(cfg) = config {
+        let loop_config = if cfg.get("thorough").and_then(|v| v.as_bool()).unwrap_or(false) {
+            LoopConfig::thorough()
+        } else if cfg.get("fast").and_then(|v| v.as_bool()).unwrap_or(false) {
+            LoopConfig::fast()
+        } else {
+            LoopConfig::default()
+        };
+
+        OllamaAgentConfig {
+            ollama_url: cfg.get("ollama_url")
+                .and_then(|v| v.as_str())
+                .unwrap_or("http://localhost:11434")
+                .to_string(),
+            default_model: cfg.get("model")
+                .and_then(|v| v.as_str())
+                .unwrap_or("qwen2.5:7b")
+                .to_string(),
+            loop_config,
+            ..Default::default()
+        }
+    } else {
+        OllamaAgentConfig::default()
+    };
+
+    // Store session
+    {
+        let mut sessions = AGENT_SESSIONS.lock().unwrap();
+        sessions.insert(session_id, AgentSession {
+            id: session_id,
+            task: task.clone(),
+            created_at: chrono::Utc::now(),
+        });
+    }
+
+    // Create event channel
+    let (tx, mut rx) = mpsc::channel::<AgentEvent>(100);
+
+    // Spawn task to forward events to frontend
+    let app_clone = app.clone();
+    let event_name = format!("agent://{}", session_id);
+    tokio::spawn(async move {
+        while let Some(event) = rx.recv().await {
+            let _ = app_clone.emit_all(&event_name, &event);
+        }
+    });
+
+    // Spawn agent task
+    let app_for_agent = app.clone();
+    tokio::spawn(async move {
+        let mut agent = OllamaAgent::new(agent_config);
+
+        // Try to refresh available models
+        if let Err(e) = agent.refresh_models().await {
+            eprintln!("[Agent {}] Failed to refresh models: {}", session_id, e);
+        }
+
+        // Process the task
+        match agent.process_task(task, tx).await {
+            Ok(result) => {
+                eprintln!("[Agent {}] Completed: {}", session_id, result);
+                let _ = app_for_agent.emit_all(
+                    &format!("agent://{}/done", session_id),
+                    serde_json::json!({"success": true, "result": result})
+                );
+            }
+            Err(error) => {
+                eprintln!("[Agent {}] Failed: {}", session_id, error);
+                let _ = app_for_agent.emit_all(
+                    &format!("agent://{}/done", session_id),
+                    serde_json::json!({"success": false, "error": error})
+                );
+            }
+        }
+
+        // Cleanup session
+        let mut sessions = AGENT_SESSIONS.lock().unwrap();
+        sessions.remove(&session_id);
+    });
+
+    Ok(session_id)
+}
+
+/// List available Ollama models
+#[tauri::command]
+pub async fn list_agent_models() -> Result<Vec<String>, String> {
+    let client = reqwest::Client::new();
+    let url = "http://localhost:11434/api/tags";
+
+    let response = client
+        .get(url)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to get models: {}", e))?
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|e| format!("Failed to parse models: {}", e))?;
+
+    let models = response["models"]
+        .as_array()
+        .ok_or("No models found")?
+        .iter()
+        .filter_map(|m| m["name"].as_str().map(String::from))
+        .collect();
+
+    Ok(models)
+}
+
+/// Check if Ollama is running
+#[tauri::command]
+pub async fn check_ollama_status() -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+
+    match client.get("http://localhost:11434/api/tags").send().await {
+        Ok(response) => {
+            if response.status().is_success() {
+                let models: serde_json::Value = response.json().await.unwrap_or_default();
+                let model_count = models["models"].as_array().map(|a| a.len()).unwrap_or(0);
+                Ok(serde_json::json!({
+                    "running": true,
+                    "model_count": model_count
+                }))
+            } else {
+                Ok(serde_json::json!({
+                    "running": false,
+                    "error": "Ollama returned error status"
+                }))
+            }
+        }
+        Err(e) => {
+            Ok(serde_json::json!({
+                "running": false,
+                "error": format!("Cannot connect to Ollama: {}", e)
+            }))
+        }
+    }
+}
+
+/// Execute a single tool (for testing or manual use)
+#[tauri::command]
+pub async fn execute_agent_tool(
+    tool: String,
+    args: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    match tool.as_str() {
+        "read_file" => {
+            let path = args.get("path")
+                .and_then(|p| p.as_str())
+                .ok_or("Missing path argument")?;
+
+            let content = tokio::fs::read_to_string(path)
+                .await
+                .map_err(|e| format!("Failed to read file: {}", e))?;
+
+            Ok(serde_json::json!({
+                "success": true,
+                "output": content
+            }))
+        }
+        "write_file" => {
+            let path = args.get("path")
+                .and_then(|p| p.as_str())
+                .ok_or("Missing path argument")?;
+            let content = args.get("content")
+                .and_then(|c| c.as_str())
+                .ok_or("Missing content argument")?;
+
+            tokio::fs::write(path, content)
+                .await
+                .map_err(|e| format!("Failed to write file: {}", e))?;
+
+            Ok(serde_json::json!({
+                "success": true,
+                "output": format!("File written: {}", path)
+            }))
+        }
+        "edit_file" => {
+            let path = args.get("path")
+                .and_then(|p| p.as_str())
+                .ok_or("Missing path argument")?;
+            let old_string = args.get("old_string")
+                .and_then(|s| s.as_str())
+                .ok_or("Missing old_string argument")?;
+            let new_string = args.get("new_string")
+                .and_then(|s| s.as_str())
+                .ok_or("Missing new_string argument")?;
+            let replace_all = args.get("replace_all")
+                .and_then(|b| b.as_bool())
+                .unwrap_or(false);
+
+            let content = tokio::fs::read_to_string(path)
+                .await
+                .map_err(|e| format!("Failed to read file: {}", e))?;
+
+            if !content.contains(old_string) {
+                return Err("old_string not found in file".to_string());
+            }
+
+            let new_content = if replace_all {
+                content.replace(old_string, new_string)
+            } else {
+                content.replacen(old_string, new_string, 1)
+            };
+
+            tokio::fs::write(path, new_content)
+                .await
+                .map_err(|e| format!("Failed to write file: {}", e))?;
+
+            Ok(serde_json::json!({
+                "success": true,
+                "output": "Edit successful"
+            }))
+        }
+        "glob_files" => {
+            let pattern = args.get("pattern")
+                .and_then(|p| p.as_str())
+                .ok_or("Missing pattern argument")?;
+            let path = args.get("path")
+                .and_then(|p| p.as_str())
+                .unwrap_or(".");
+
+            let full_pattern = format!("{}/{}", path, pattern);
+
+            let matches: Vec<String> = glob::glob(&full_pattern)
+                .map_err(|e| format!("Invalid pattern: {}", e))?
+                .filter_map(|r| r.ok())
+                .map(|p| p.display().to_string())
+                .collect();
+
+            Ok(serde_json::json!({
+                "success": true,
+                "output": matches.join("\n"),
+                "count": matches.len()
+            }))
+        }
+        "grep_files" => {
+            let pattern = args.get("pattern")
+                .and_then(|p| p.as_str())
+                .ok_or("Missing pattern argument")?;
+            let path = args.get("path")
+                .and_then(|p| p.as_str())
+                .unwrap_or(".");
+
+            let output = tokio::process::Command::new("grep")
+                .args(["-r", "-n", pattern, path])
+                .output()
+                .await
+                .map_err(|e| format!("Failed to run grep: {}", e))?;
+
+            let stdout = String::from_utf8_lossy(&output.stdout);
+
+            Ok(serde_json::json!({
+                "success": output.status.success() || !stdout.is_empty(),
+                "output": stdout.to_string()
+            }))
+        }
+        "execute_shell" => {
+            let command = args.get("command")
+                .and_then(|c| c.as_str())
+                .ok_or("Missing command argument")?;
+
+            let output = tokio::process::Command::new("sh")
+                .args(["-c", command])
+                .output()
+                .await
+                .map_err(|e| format!("Failed to execute command: {}", e))?;
+
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let stderr = String::from_utf8_lossy(&output.stderr);
+
+            Ok(serde_json::json!({
+                "success": output.status.success(),
+                "stdout": stdout.to_string(),
+                "stderr": stderr.to_string(),
+                "exit_code": output.status.code()
+            }))
+        }
+        _ => Err(format!("Unknown tool: {}", tool))
+    }
 }
 
 #[cfg(test)]

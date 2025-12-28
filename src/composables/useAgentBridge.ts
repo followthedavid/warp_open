@@ -1,6 +1,6 @@
 // useAgentBridge.ts
 // Vue composable to bridge frontend -> local ai_agent_server.cjs
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onUnmounted } from 'vue';
 
 const API_BASE = (import.meta.env.VITE_AGENT_BASE || 'http://localhost:4005');
 
@@ -14,7 +14,12 @@ export function useAgentBridge(pollInterval = 2000) {
 
   async function fetchState() {
     try {
-      const res = await fetch(`${API_BASE}/state`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+      const res = await fetch(`${API_BASE}/state`, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       connected.value = true;
@@ -23,7 +28,12 @@ export function useAgentBridge(pollInterval = 2000) {
       results.value = json.results || {};
       lastError.value = null;
     } catch (e) {
+      // Silently handle connection failures - server may not be running
       connected.value = false;
+      if (lastError.value === null) {
+        // Only log once, not every poll
+        console.debug('[AgentBridge] Server not available at', API_BASE);
+      }
       lastError.value = String(e);
     }
   }
@@ -63,6 +73,11 @@ export function useAgentBridge(pollInterval = 2000) {
 
   function startPolling() {
     if (timer) return;
+    // Only start polling if explicitly enabled via env var
+    if (import.meta.env.VITE_AGENT_BRIDGE_ENABLED !== 'true') {
+      console.debug('[AgentBridge] Polling disabled (set VITE_AGENT_BRIDGE_ENABLED=true to enable)');
+      return;
+    }
     timer = window.setInterval(fetchState, pollInterval);
     fetchState();
   }
@@ -74,7 +89,8 @@ export function useAgentBridge(pollInterval = 2000) {
     }
   }
 
-  onMounted(() => startPolling());
+  // Don't auto-start polling - let components call startPolling() if needed
+  // onMounted(() => startPolling());
   onUnmounted(() => stopPolling());
 
   return {

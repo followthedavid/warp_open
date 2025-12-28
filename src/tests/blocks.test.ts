@@ -4,16 +4,19 @@
  * Verifies Warp-style command grouping works correctly.
  */
 
-import { describe, test, expect, beforeEach } from 'vitest'
+import { describe, test, expect, beforeEach, vi } from 'vitest'
 
-// Mock the invoke function
-const mockInvoke = vi.fn()
+// Mock Tauri invoke - must be hoisted, so use factory pattern
 vi.mock('@tauri-apps/api/tauri', () => ({
-  invoke: mockInvoke
+  invoke: vi.fn()
 }))
 
 // Import after mocking
+import { invoke } from '@tauri-apps/api/tauri'
 import { useBlocks } from '../composables/useBlocks'
+
+// Get the mocked function for assertions
+const mockInvoke = vi.mocked(invoke)
 
 describe('useBlocks', () => {
   let blocksStore: ReturnType<typeof useBlocks>

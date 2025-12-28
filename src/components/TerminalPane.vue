@@ -179,12 +179,135 @@ const showRecordingControls = ref(true)
 // Blocks visibility state
 const showBlocks = ref(true)
 
+// AI Ghost Text Autocomplete state
+const ghostSuggestion = ref('')
+const isShowingGhost = ref(false)
+let ghostDebounceTimer = null
+let ghostDecoration = null
+
 // Command tracking for analytics
 let inputBuffer = ''
 const recordingControlsRef = ref(null)
 const terminalCols = ref(80)
 const terminalRows = ref(24)
 const isInReplayMode = ref(false)
+
+// ============================================================================
+// AI Ghost Text Autocomplete Functions
+// ============================================================================
+
+/**
+ * Fetch AI completion suggestion for partial command
+ */
+async function fetchGhostSuggestion(partial) {
+  if (partial.length < 2) {
+    clearGhostText()
+    return
+  }
+
+  try {
+    const suggestion = await invoke('get_ai_completion', {
+      partialCommand: partial,
+      cwd: currentCwd.value || '~'
+    })
+
+    if (suggestion && suggestion.trim()) {
+      ghostSuggestion.value = suggestion.trim()
+      showGhostText(suggestion.trim())
+    } else {
+      clearGhostText()
+    }
+  } catch (error) {
+    console.log('[TerminalPane] Ghost suggestion unavailable:', error.message || error)
+    clearGhostText()
+  }
+}
+
+/**
+ * Show ghost text suggestion after cursor using xterm decoration
+ */
+function showGhostText(suggestion) {
+  if (!terminal || !suggestion) return
+
+  // Clear existing decoration
+  clearGhostText()
+
+  // Get cursor position
+  const cursorX = terminal.buffer.active.cursorX
+  const cursorY = terminal.buffer.active.cursorY
+
+  // Create a marker at current position
+  const marker = terminal.registerMarker(0)
+  if (!marker) return
+
+  // Create decoration with ghost text
+  const decoration = terminal.registerDecoration({
+    marker,
+    x: cursorX,
+    width: suggestion.length,
+    backgroundColor: 'transparent'
+  })
+
+  if (decoration) {
+    decoration.onRender((element) => {
+      element.style.color = '#666'
+      element.style.fontStyle = 'italic'
+      element.style.pointerEvents = 'none'
+      element.textContent = suggestion
+    })
+    ghostDecoration = { decoration, marker }
+    isShowingGhost.value = true
+  }
+}
+
+/**
+ * Clear ghost text decoration
+ */
+function clearGhostText() {
+  if (ghostDecoration) {
+    if (ghostDecoration.decoration) {
+      ghostDecoration.decoration.dispose()
+    }
+    if (ghostDecoration.marker) {
+      ghostDecoration.marker.dispose()
+    }
+    ghostDecoration = null
+  }
+  ghostSuggestion.value = ''
+  isShowingGhost.value = false
+}
+
+/**
+ * Accept ghost text suggestion - insert it
+ */
+async function acceptGhostSuggestion() {
+  if (!isShowingGhost.value || !ghostSuggestion.value) return false
+
+  const suggestion = ghostSuggestion.value
+  clearGhostText()
+
+  // Send suggestion to PTY
+  try {
+    await invoke('send_input', { id: props.ptyId, input: suggestion })
+    inputBuffer += suggestion
+    return true
+  } catch (error) {
+    console.error('[TerminalPane] Failed to accept suggestion:', error)
+    return false
+  }
+}
+
+/**
+ * Debounced ghost suggestion fetch
+ */
+function debouncedFetchGhost(partial) {
+  if (ghostDebounceTimer) {
+    clearTimeout(ghostDebounceTimer)
+  }
+  ghostDebounceTimer = setTimeout(() => {
+    fetchGhostSuggestion(partial)
+  }, 300) // 300ms debounce
+}
 
 onMounted(async () => {
   console.log('[TerminalPane] Mounted for pane:', props.paneId, 'PTY:', props.ptyId)
@@ -348,6 +471,24 @@ onMounted(async () => {
   })
 
   terminal.attachCustomKeyEventHandler((event) => {
+    // Tab: Accept ghost text suggestion if showing
+    if (event.key === 'Tab' && event.type === 'keydown' && isShowingGhost.value) {
+      acceptGhostSuggestion()
+      return false // Prevent default tab behavior
+    }
+
+    // Escape: Clear ghost text or close AI overlay
+    if (event.key === 'Escape' && event.type === 'keydown') {
+      if (isShowingGhost.value) {
+        clearGhostText()
+        return false
+      }
+      if (showAIOverlay.value) {
+        showAIOverlay.value = false
+        return false
+      }
+    }
+
     // Cmd/Ctrl + Shift + A: Toggle AI overlay (only if AI is enabled)
     if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key === 'a' && event.type === 'keydown') {
       if (isAIEnabled()) {
@@ -355,12 +496,6 @@ onMounted(async () => {
       } else {
         console.log('[TerminalPane] AI is disabled (air-gapped mode)')
       }
-      return false
-    }
-
-    // Escape: Close AI overlay if open
-    if (event.key === 'Escape' && event.type === 'keydown' && showAIOverlay.value) {
-      showAIOverlay.value = false
       return false
     }
 
@@ -386,6 +521,9 @@ onMounted(async () => {
   // Input handling
   terminal.onData(async (data) => {
     try {
+      // Clear ghost text on any input (will re-fetch after debounce)
+      clearGhostText()
+
       // Track command input for analytics
       if (data === '\r' || data === '\n') {
         // Enter pressed - emit command if we have input
@@ -402,15 +540,27 @@ onMounted(async () => {
       } else if (data === '\x7f' || data === '\b') {
         // Backspace - remove last char
         inputBuffer = inputBuffer.slice(0, -1)
+        // Fetch new suggestion for shorter input
+        if (inputBuffer.length >= 2 && isAIEnabled()) {
+          debouncedFetchGhost(inputBuffer)
+        }
       } else if (data === '\x03') {
         // Ctrl+C - clear buffer
         inputBuffer = ''
       } else if (data.length === 1 && data.charCodeAt(0) >= 32) {
         // Printable character
         inputBuffer += data
+        // Fetch AI suggestion if AI enabled
+        if (isAIEnabled()) {
+          debouncedFetchGhost(inputBuffer)
+        }
       } else if (data.length > 1 && !data.startsWith('\x1b')) {
         // Pasted text (not escape sequence)
         inputBuffer += data
+        // Fetch AI suggestion for pasted text
+        if (isAIEnabled()) {
+          debouncedFetchGhost(inputBuffer)
+        }
       }
 
       // Record input if recording is active
@@ -447,6 +597,12 @@ onUnmounted(() => {
     clearTimeout(batchWriteTimer)
     flushWrites()
   }
+
+  // Clean up ghost text
+  if (ghostDebounceTimer) {
+    clearTimeout(ghostDebounceTimer)
+  }
+  clearGhostText()
 
   stopOutputStream()
   window.removeEventListener('resize', handleResizeDebounced)

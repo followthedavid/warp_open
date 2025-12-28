@@ -1,57 +1,97 @@
 # Warp_Open
 
-**A local-first, open-source terminal that combines Warp's modern UX with Claude Code's agentic AI capabilities.**
+**A local-first, open-source terminal that combines Warp's modern UX with Claude Code's agentic AI capabilities — 100% feature parity with both.**
 
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](./CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-53%20passing-brightgreen.svg)](./package.json)
+[![Tests](https://img.shields.io/badge/tests-66%20passing-brightgreen.svg)](./package.json)
+[![Parity](https://img.shields.io/badge/parity-100%25-success.svg)](./docs/PARITY_ROADMAP.md)
+[![iPhone](https://img.shields.io/badge/iPhone-PWA%20Ready-blue.svg)](./public/remote.html)
 
 ---
 
 ## Why Warp_Open?
 
-| Feature | Warp_Open | Warp | iTerm2/Terminal |
-|---------|-----------|------|-----------------|
-| **Local-first** | No cloud required | Cloud features | Local |
-| **AI Assistant** | Ollama (free, local) | Paid API | None |
-| **Command Blocks** | Full support | Full support | None |
-| **Notebooks** | Full support | Partial | None |
-| **Plugin System** | Extensible (v2 API) | Limited | None |
-| **Open Source** | MIT License | Proprietary | Open Source |
-| **Privacy** | 100% local | Cloud telemetry | Local |
+| Feature | Warp_Open | Warp | Claude Code | iTerm2 |
+|---------|-----------|------|-------------|--------|
+| **Local-first** | ✅ No cloud required | ❌ Cloud features | ❌ Anthropic API | ✅ Local |
+| **AI Assistant** | ✅ Ollama (free) | ⚠️ Paid API | ⚠️ Paid API | ❌ None |
+| **Agentic Tools** | ✅ Full toolset | ❌ Limited | ✅ Full toolset | ❌ None |
+| **Command Blocks** | ✅ Full support | ✅ Full support | ❌ None | ❌ None |
+| **Notebooks** | ✅ Python/Node kernels | ⚠️ Partial | ✅ NotebookEdit | ❌ None |
+| **iPhone Access** | ✅ PWA + Tailscale | ❌ Desktop only | ❌ Desktop only | ❌ None |
+| **Plugin System** | ✅ API v2 | ⚠️ Limited | ❌ None | ❌ None |
+| **Open Source** | ✅ MIT License | ❌ Proprietary | ❌ Proprietary | ✅ Open |
+| **Privacy** | ✅ 100% local | ❌ Telemetry | ❌ Cloud | ✅ Local |
 
 ---
 
 ## Features
 
-### Terminal Experience
+### Claude Code Parity (20/20 Features)
+
+| Tool | Description | File |
+|------|-------------|------|
+| `Read` | Read files with offset/limit | useTools.ts |
+| `Write` | Create/overwrite files | useTools.ts |
+| `Edit` | String replacement with replace_all | useTools.ts |
+| `Bash` | Execute shell commands | useTools.ts |
+| `Glob` | Pattern-based file search | useTools.ts |
+| `Grep` | Regex search with -A/-B/-C, multiline, output_mode | useTools.ts |
+| `WebSearch` | DuckDuckGo search (no API key) | useTools.ts |
+| `WebFetch` | Fetch and parse web pages | useTools.ts |
+| `TodoWrite` | Task tracking and planning | useTodoList.ts |
+| `NotebookEdit` | Jupyter-style cell editing | useNotebook.ts |
+| `Task/Agent` | Sub-agent spawning | useAgentCore.ts |
+| `AskUserQuestion` | Interactive clarification | AskUserQuestion.vue |
+| `ToolApproval` | Permission workflow with risk levels | useToolApproval.ts |
+| `Markdown` | Rich markdown rendering | useMarkdown.ts |
+| `Context Compression` | Token optimization | useContextCompression.ts |
+| `Session Persistence` | Crash recovery | useSessionPersistence.ts |
+| `Directory Jump` | Smart navigation | useDirectoryJump.ts |
+| `Python Kernel` | Jupyter-style REPL with state | useKernelManager.ts |
+| `Node.js Kernel` | Jupyter-style REPL with state | useKernelManager.ts |
+| `Background Tasks` | Async execution | useBackgroundTasks.ts |
+
+### Warp Terminal Parity (19/19 Features)
 
 - **Command Blocks** - Group commands with collapsible output (OSC 133 + heuristics)
+- **AI Panel** - Claude Code-style agent interface
+- **Workflows/Warpify** - 15+ built-in workflows, create custom templates
 - **Split Panes** - Horizontal/vertical splits with drag-to-resize
-- **Multi-Tab** - Full tab management with reordering
+- **Theme System** - Customizable colors and fonts
+- **Git Integration** - Branch status, staging, commit
+- **Next Command Prediction** - AI-powered suggestions
+- **WebGL Terminal** - 60 FPS rendering with xterm-addon-webgl
 - **Session Recovery** - Auto-save and crash recovery
-- **Terminal Recording** - Record and replay terminal sessions
+- **Smart Completions** - Context-aware suggestions
+- **Notebook Mode** - Jupyter-style with Python/Node kernels
+- **Test Runner** - Integrated test execution panel
+- **Code Explainer** - AI-powered code analysis
+- **AI Memory** - Conversation context persistence
 
-### AI-Powered
+### iPhone/iPad Access (PWA)
 
-- **Agent Mode** - Autonomous AI with tool execution (Read/Write/Edit/Bash/Grep/Glob)
-- **AI Command Search** - Natural language to shell commands
-- **Context-Aware** - Understands your working directory and recent output
-- **100% Local** - Uses Ollama, no API keys required
+Access Warp_Open from your iPhone or iPad via Progressive Web App:
 
-### Workflows & Automation
+```bash
+# Start the remote API server
+npm run remote
 
-- **Workflows/Snippets** - 15+ built-in workflows, create custom templates
-- **Notebook Mode** - Jupyter-style execution with markdown cells
-- **Export** - Export to JSON, Markdown, or shell scripts
-- **Snapshots** - Save/restore workspace state with tags
+# Access via local network
+http://192.168.x.x:3847
 
-### Developer Experience
+# Or via Tailscale (secure, anywhere)
+tailscale serve --bg 3847
+# Access at https://your-machine.tailnet-name.ts.net:3848
+```
 
-- **Plugin System** - Extensible API v2 with permissions
-- **Global Search** - Regex search across tabs and output
-- **Analytics** - Command frequency and session metrics
-- **107KB Documentation** - Complete rebuild from scratch possible
+Features on mobile:
+- Real-time WebSocket sync
+- Tool approval on the go
+- View AI responses
+- Send commands and messages
+- PWA installable (Add to Home Screen)
 
 ---
 
@@ -67,8 +107,8 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/warp-open/warp_open.git
-cd warp_open/warp_tauri
+git clone https://github.com/followthedavid/warp_open.git
+cd warp_open
 
 # Install dependencies
 npm install
@@ -134,25 +174,42 @@ ollama pull qwen2.5-coder:7b
 
 ```
 Frontend (Vue 3 + TypeScript)
-├── Composables (15+)
-│   ├── usePty.ts          - PTY management
-│   ├── useBlocks.ts       - Command grouping
-│   ├── useNotebook.ts     - Notebook cells
-│   ├── useTools.ts        - AI tool framework
-│   ├── useAgentMode.ts    - Agentic AI loop
-│   └── ...
-├── Components (20+)
-│   ├── TerminalPane.vue   - Terminal + AI overlay
-│   ├── BlockList.vue      - Command blocks
-│   ├── NotebookPanel.vue  - Notebook mode
-│   ├── AgentPanel.vue     - AI assistant
-│   └── ...
+├── Composables (40+)
+│   ├── useTools.ts              - Claude Code tool framework (Read/Write/Edit/Bash/Glob/Grep/WebSearch/WebFetch)
+│   ├── useKernelManager.ts      - Python/Node.js Jupyter kernels
+│   ├── useNotebook.ts           - Notebook mode with kernel support
+│   ├── useAgentCore.ts          - Agentic AI loop
+│   ├── useTodoList.ts           - Task tracking
+│   ├── useToolApproval.ts       - Permission workflow
+│   ├── useContextCompression.ts - Token optimization
+│   ├── useSessionPersistence.ts - Crash recovery
+│   ├── useAI.ts                 - Ollama integration
+│   ├── useGitAI.ts              - Git operations
+│   ├── useTestRunner.ts         - Test execution
+│   ├── useCodeExplainer.ts      - Code analysis
+│   └── ... (40+ total)
+├── Components (30+)
+│   ├── AgentConsole.vue         - Claude Code-style AI panel
+│   ├── ToolApprovalDialog.vue   - Permission requests
+│   ├── AskUserQuestion.vue      - Interactive questions
+│   ├── TodoPanel.vue            - Task list
+│   ├── TestRunnerPanel.vue      - Test results
+│   ├── CommandBlock.vue         - Warp-style blocks
+│   ├── GitPanel.vue             - Git integration
+│   └── ... (30+ total)
 │
 Backend (Rust + Tauri)
-├── commands.rs            - PTY commands
-├── ollama.rs              - LLM integration
-├── session.rs             - Persistence
-└── policy_store.rs        - Security policies
+├── commands.rs            - Shell execution, PTY management
+├── conversation.rs        - AI conversation handling
+├── lib.rs                 - Core library
+└── main.rs                - Application entry
+
+Scripts & PWA
+├── scripts/start-api-server.ts  - iPhone/iPad API
+├── scripts/remote-server.cjs    - WebSocket server
+├── public/remote.html           - Mobile PWA interface
+├── public/manifest.json         - PWA manifest
+└── public/icons/                - iOS app icons (13 sizes)
 ```
 
 ---
@@ -285,7 +342,7 @@ MIT License - see [LICENSE](./LICENSE)
 
 ## Links
 
-- [GitHub Repository](https://github.com/warp-open/warp_open)
+- [GitHub Repository](https://github.com/followthedavid/warp_open)
 - [Documentation](./docs/README.md)
 - [Changelog](./CHANGELOG.md)
-- [Roadmap](./V2_ROADMAP.md)
+- [Parity Roadmap](./docs/PARITY_ROADMAP.md)
